@@ -1,0 +1,10 @@
+.elements-demo {
+  max-width: 800px;
+  margin: 24px auto;
+}
+.elements-demo>div>*:not(strong) {
+  display: block;
+  border: 1px solid black;
+  padding: 8px;
+  margin: 8px 0;
+}

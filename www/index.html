@@ -1,0 +1,68 @@
+<!--
+@license
+Copyright (c) 2018 The Polymer Project Authors. All rights reserved.
+This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
+The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
+The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
+Code distributed by Google as part of the polymer project is also
+subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
+-->
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>OutOfMyWay Time Tracker</title>
+
+    <meta name="generator" content="PWA Starter Kit">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="A minimalist time tracker.">
+
+    <link rel="icon" href="images/favicon.png">
+
+    <!-- See https://goo.gl/OOhYW5 -->
+    <link rel="manifest" href="manifest.json">
+
+    <!-- See https://goo.gl/qRE0vM -->
+    <meta name="theme-color" content="#3f51b5">
+
+    <link rel="shortcut icon" href="">
+    <link rel="stylesheet" type="text/css" href="styles.css" />
+
+    <!--
+      The `<base>` tag below is present to support two advanced deployment options:
+      1) Differential serving. 2) Serving from a non-root path.
+      Instead of manually editing the `<base>` tag yourself, you should generally either:
+      a) Add a `basePath` property to the build configuration in your `polymer.json`.
+      b) Use the `--base-path` command-line option for `polymer build`.
+    -->
+    <base href="/">
+
+    <script>
+      // Load and register pre-caching Service Worker
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+          navigator.serviceWorker.register('service-worker.js', {
+            scope: '/',
+          });
+        });
+      }
+    </script>
+
+  </head>
+  <body onload=start()>
+    <div id="header">
+      <div class="app">
+        <strong>Enter command:</strong>
+        <x-time-tracker></x-time-tracker>
+        <div id="output"></div>
+      </div>
+      <x-hello-world></x-hello-world>
+    </div>
+    <script type="module" src="./time-tracker.js"></script>
+
+    <!-- Load webcomponents-loader.js to check and load any polyfills your browser needs -->
+    <script src="node_modules/@webcomponents/webcomponentsjs/webcomponents-loader.js"></script>
+
+  </body>
+</html>
