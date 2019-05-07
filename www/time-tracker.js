@@ -50,10 +50,8 @@ class TimeTracker extends LitElement {
     // interpret the dynamic parts of your template.
     return html`
       <div><wired-input type="text" autofocus id="text-input" class="form-control text-input" name="command" @keyup="${this.handleInput}"></wired-input>
-      <div>
         <wired-toggle id="helpme" class="toggle" @change="${this.doToggle}"></wired-toggle></wired-toggle>
-      </div>
-      <span class="${this.outputClass}">${this.outputText}</span>
+      <div class="${this.outputClass}">${this.outputText}</div>
       <div id="helpText" ?hidden=${!this.showHelp}>${this.getHelpText()}</div>
     `;
   }
@@ -62,46 +60,92 @@ class TimeTracker extends LitElement {
     this.showHelp = !this.showHelp;
   }
 
-  // handleInput process user input
-  handleInput(e) {
-   if (e.key === 'Enter') {
-    // Cancel the default action, if needed
-    e.preventDefault();
-    var el = this.shadowRoot.getElementById('text-input');
-    var cmd = el.value.match(/([^harslebt]+)\s+([^\sA-z0-9_*-;]+)/g);
-    if (cmd === null) {
-      updateOutput('Invalid characters - alphanumeric only', 'red');
-    }
-    var d = new Date();
-    console.log(d.toISOString(), ': Command entered = ', cmd);
-    handleCommand(cmd);
+  // handleCommand process user input and hide window after handling command without error
+  handleCommand(el, cmd) {
+    var c = cmd[0].split(/\s/)[0];
+    var args = cmd.shift();
     // clear textarea for next command
-    this.value = '';
-    switch(cmd) {
-      case 'h':
+    el.value = '';
+    switch(c) {
+      case 'h', 'hello':
+        async () => {
+          await runUtt(['hello']);
+          await minimize('hello');
+        }
         break;
-      case 'a':
+      case 'a', 'add':
+        async () => {
+          await runUtt(['add'].concat(args));
+          await minimize('hello');
+        }
         break;
-      case 'r':
+      case 'r', 'report':
+        async () => {
+          await runUtt(['report', '--from', 'monday', '--to', 'friday']);
+          await minimize('hello');
+        }
         break;
-      case 's':
+      case 's', 'stretch':
+        async () => {
+          await runUtt(['stretch']);
+          await minimize('');
+        }
         break;
-      case 'l':
+      case 'l', 'last':
+        async () => {
+          runUtt(['report', '--from', 'monday', '--to', 'friday']);
+          minimize('');
+        }
         break;
-      case 'e':
+      case 'e', '':
+        async () => {
+          runUtt(['edit']);
+          minimize('');
+        }
         break;
-      case 'b':
+      case 'b', 'break':
+        async () => {
+          runUtt(['add', 'break', '**']);
+          minimize('');
+        }
         break;
-      case 't':
+      case 't', '?', 'toggle':
+        // change the toggle as if it had been clicked
+        el = this.shadowRoot.getElementById('helpme');
+        if (el !== null) {
+          el.checked = !el.checked;
+        }
+        this.doToggle();
         break;
       default:
+        this.updateOutput('Invalid command - try again or ? for help', 'red');
         break;
     }
   }
-}
+
+  // handleInput process user input, ensure the text entered is valid
+  handleInput(e) {
+    if (e.key === 'Enter') {
+      // Cancel the default action, if needed
+      e.preventDefault();
+      var el = this.shadowRoot.getElementById('text-input');
+      var cmd = el.value.match(/^([A-z?]+)(\s+[A-z0-9_*-;\s]+)?$/g);    
+      if (cmd === null) {
+        this.updateOutput('Invalid characters - alphanumeric only', 'red');
+        el.value = '';
+      }
+      else {
+        var d = new Date();
+        console.log(d.toISOString(), ': Command entered = ', cmd[0]);
+        this.handleCommand(el, cmd);  
+      }
+      // Clear any previous output
+      this.updateOutput('', 'black');
+    }
+  }
 
   updateOutput(data, color) {
-    this.outputColor = color;
+    this.outputClass = color;
     this.outputText = data;
   }
 

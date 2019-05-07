@@ -32,6 +32,7 @@ Lorca uses the locally installed version of Chrome with remote debugging protoco
 
 * Go 1.11+
 * [Robotgo dependencies](https://github.com/go-vgo/robotgo#requirements)
+    * Ubuntu 19.04 seems to also need `apt install libxkbcommon-x11-dev`
 
 # Getting Started
 
