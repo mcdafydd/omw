@@ -32,20 +32,26 @@ Lorca uses the locally installed version of Chrome with remote debugging protoco
 
 * Go 1.11+
 * [Robotgo dependencies](https://github.com/go-vgo/robotgo#requirements)
+    * Ubuntu 19.04 seems to also need `apt install libxkbcommon-x11-dev`
+
 
 # Getting Started
 
 1. Run the program
-2. Hit the global shortcut (currently `<CTRL>-<SHIFT>-<;>`) on your keyboard to bring up the window
-3. If you need help, toggle the slider
+2. Hit the global shortcut (`<right shift> + <left shift>`) on your keyboard to bring up the window
+3. If you need help, toggle the slider or enter the command '?'
 
 # Architecture
 
 This tool is being rewritten using Go, [Lorca](https://github.com/zserge/lorca), and [LitElement](https://lit-element.polymer-project.org/).
 
-The keyboard shortcut, a critical part of the tool to keep you "in flow", is provided by [RobotGo](https://github.com/go-vgo/robotgo), which also relies on [cgo](https://golang.org/cmd/cgo/).  The global keyboard shortcut is the primary reason for developing the application with Lorca and Go, instead of as a pure Progressive Web App.  Chrome provides the ability to register global keyboard shortcuts with the Chrome Extensions [Commands API](https://developer.chrome.com/extensions/commands), but I find this design nice to work with for the time being, and it makes working with the local filesystem a piece of cake.  Because the UI is written with PWA in mind, it should be relatively easy to change this decision in the future.
+The keyboard shortcut, a critical part of the tool to keep you "in flow", is provided by [RobotGo Hook](https://github.com/robotn/gohook/), which also relies on [cgo](https://golang.org/cmd/cgo/).  The global keyboard shortcut is the primary reason for developing the application with Lorca and Go, instead of as a pure Progressive Web App.  Chrome provides the ability to register global keyboard shortcuts with the Chrome Extensions [Commands API](https://developer.chrome.com/extensions/commands), but I find this design nice to work with for the time being, and it makes working with the local filesystem a piece of cake.  Google announce support for Desktop PWAs starting in Chrome 73 and that [shortcuts would be added soon](https://developers.google.com/web/progressive-web-apps/desktop#whats_next).  Because the UI is written with PWA in mind, it should be relatively easy to take advantage of this in the future if it seems like a good choice.
 
-Go and Lorca provide the "server", interfacing with the host operating system and controlling the instance of Chrome using its remote debugging protocol.  LitElement provides the user interface.  Lorca provides a way for Go to execute Javascript inside the instance of Chrome, and also expose functions in Javascript that Chrome can execute to access functions on the OS.
+For now, Go and Lorca provide the "server", interfacing with the host operating system and controlling the instance of Chrome using its remote debugging protocol.  [LitElement](https://lit-element.polymer-project.org/) provides the user interface.  Lorca provides a way for Go to execute Javascript inside the instance of Chrome, and also expose functions in Javascript that Chrome can execute to access functions on the OS.
+
+# Building
+
+Planning to move this into [Mage](https://github.com/magefile/mage) to handle the npm/polymer build commands, and investigating [xgo](https://github.com/karalabe/xgo) to handle the CGO cross-compilation necessary for the Robotgo Hook library.  Until then, running the `go build` step on the desired operating system is probably easier.
 
 # History
 
