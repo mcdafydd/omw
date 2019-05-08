@@ -28,6 +28,11 @@ Transfering quick tasks from this tool into an external tracking system (ie: Wor
 
 Lorca uses the locally installed version of Chrome with remote debugging protocol to provide the UI.
 
+* Python 2 or 3
+* [Python UTT](https://github.com/larose/utt/)
+
+The Python dependencies will be removed before 1.0.
+
 ## For developing
 
 * Go 1.11+
