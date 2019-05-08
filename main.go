@@ -32,10 +32,11 @@ func (c *worker) RunUTT(argv []string) {
 	c.Lock()
 	defer c.Unlock()
 	if len(argv) == 1 {
-		cmd := exec.Command(argv[0])
+		cmd := exec.Command("utt", argv[0])
 		processOutput(cmd)
 	} else if len(argv) > 1 {
-		cmd := exec.Command(argv[0], argv[1:]...)
+		args := append([]string{"utt"}, argv...)
+		cmd := exec.Command(args[0], args[1:]...)
 		processOutput(cmd)
 	} else {
 		return
@@ -44,10 +45,9 @@ func (c *worker) RunUTT(argv []string) {
 
 // Minimize Hides the application window
 // Saves the current window lorca.Bounds
-func (c *worker) Minimize(s string) {
+func (c *worker) Minimize() {
 	c.Lock()
 	defer c.Unlock()
-	fmt.Printf("RECEIVED STRING MINIMIZE = %s\n\n", s)
 	bounds, err := c.ui.Bounds()
 	if err != nil {
 		log.Println("[ERROR] Minimize.Bounds(): ", err)
@@ -76,8 +76,14 @@ func (c *worker) Restore() {
 	}
 }
 
-// processOutput handles any results received from exec.Command()
-func processOutput(_ *exec.Cmd) {
+// processOutput executes cmd and handles any results
+func processOutput(cmd *exec.Cmd) {
+	out, err := cmd.Output()
+	if err != nil {
+		log.Println(err)
+	} else {
+		fmt.Printf(string(out))
+	}
 	return
 }
 
@@ -123,21 +129,27 @@ func main() {
 		console.log('Multiple values:', [1, false, {"x":5}]);
 	`)*/
 
+	log.Println("--- Please press ctrl+alt+k ---")
+	ok := robotgo.AddEvents("ctrl", "alt", "k")
+	if ok {
+		c.Restore()
+	}
+
+	// start hook
+	s := robotgo.Start()
+	// end hook
+	defer robotgo.End()
+
+	for ev := range s {
+		fmt.Println(ev)
+	}
+
 	// Wait until the interrupt signal arrives or browser window is closed
 	sigc := make(chan os.Signal)
 	signal.Notify(sigc, os.Interrupt)
 	select {
 	case <-sigc:
 	case <-ui.Done():
-	}
-
-	// Setup hotkey loop
-	for {
-		ok := robotgo.AddEvents("ctrl", "shift", "l")
-		if ok {
-			log.Println("Launching command window...")
-		}
-		c.Restore()
 	}
 
 	log.Println("exiting...")
