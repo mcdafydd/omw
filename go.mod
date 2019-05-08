@@ -1,4 +1,4 @@
-module github.com/mcdafydd/outofmyway-timetracker/v51
+module github.com/mcdafydd/outofmyway-timetracker/v52
 
 go 1.12
 
