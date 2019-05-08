@@ -51,7 +51,9 @@ class TimeTracker extends LitElement {
     // Return the template using the html template tag. This will allow lit-html to
     // interpret the dynamic parts of your template.
     return html`
-      <div><wired-input type="text" autofocus id="text-input" class="form-control text-input" name="command" @keyup="${this.handleInput}"></wired-input>
+      <div class="user-input">
+        <wired-input type="text" autofocus id="text-input" class="form-control text-input" name="command" @keyup="${this.handleInput}"></wired-input>
+      </div>
       <div><wired-toggle id="helpme" class="toggle" @change="${this.doToggle}" ?checked=${this.showHelp}></wired-toggle></wired-toggle></div>
       <div class="${this.outputClass}">${this.outputText}</div>
       <div id="helpText" ?hidden=${!this.showHelp}>${this.getHelpText()}</div>
@@ -77,7 +79,7 @@ class TimeTracker extends LitElement {
         minimize();
         break;
       case 'a':
-        if (len(argv) > 0) {
+        if (argv.length > 0) {
           runUtt(['add'].concat(argv));
           minimize();  
         }

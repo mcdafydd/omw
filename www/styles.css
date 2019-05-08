@@ -1,7 +1,7 @@
 /* Ref: https://github.com/elv1n/slack-dark-mojave-theme/blob/master/style.css */
 :root {
 	--primary: #09F;
-	--text: rgb(184, 68, 68);
+	--text: rgb(214, 196, 196);
 	--background: rgb(41, 42, 49);
 	--background-elevated: rgb(41, 42, 49);
 	--color-highlight: rgb(43, 107, 149);
@@ -22,6 +22,13 @@
 	--scrollbar-border: rgb(120, 120, 120);
 
 	--active-icon: rgb(43, 107, 149);
+	
+	font-family: Verdana, Arial, Helvetica, sans-serif; 
+	font-size:1.15em; color:blue;
+}
+
+.user-input {
+	--text: #242425;
 }
 
 h1, h2, h3, h4 {
@@ -125,7 +132,7 @@ ts-jumper input[type="text"],
 }
 
 .c-message--focus:not(.c-message--highlight):not(.c-message--standalone):not(.c-message--pinned):not(.c-message--ephemeral):not(.c-message--custom_response):not(.c-message--starred):not(.c-message--sli_highlight), .c-message--hover:not(.c-message--highlight):not(.c-message--standalone):not(.c-message--pinned):not(.c-message--ephemeral):not(.c-message--custom_response):not(.c-message--starred):not(.c-message--sli_highlight), .c-message:hover:not(.c-message--highlight):not(.c-message--standalone):not(.c-message--pinned):not(.c-message--ephemeral):not(.c-message--custom_response):not(.c-message--starred):not(.c-message--sli_highlight) {
-/ / background-color: var(--background-hover);
+/*  background-color: var(--background-hover); */
 	background-color: transparent;
 }
 
@@ -279,7 +286,7 @@ li.active[class] span,
 /*also add border to unread count for individual channels*/
 
 .p-channel_sidebar__badge {
-/ / border: 1 px solid;
+/* border: 1 px solid; */
 }
 
 /* new scrollbar */
