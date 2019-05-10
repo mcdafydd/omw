@@ -1,6 +1,6 @@
 # OutOfMyWay Time Tracker
 
-*** (5/4/19) In active development, it may not work ***
+*** (5/4/19) In active development, it may not work exactly as described ***
 
 A minimalist time tracker.  The primary purposes of this tool are two-fold:
 
@@ -16,7 +16,7 @@ Secondary goals are:
 * Stay as lightweight as practical
 * (future) Provide an extensible API to the reporting functions
 
-The time-tracking process was inspired by [UTT](https://github.com/larose/utt), and originally called it as an external dependency.
+This time-tracking tool was inspired by the [Ultimate Time Tracker](https://github.com/larose/utt).  The original version (and this version at the moment) calls `utt` as an external dependency.
 
 Transfering quick tasks from this tool into an external tracking system (ie: Workday) is still largely manual. Since this is usually a requirement for enterprise users, streamlining this process will be a core part of reaching version 1.0.
 
@@ -33,18 +33,40 @@ Lorca uses the locally installed version of Chrome with remote debugging protoco
 
 The Python dependencies will be removed before 1.0.
 
+### Getting Started
+
+1. Run the program, it should display the main app window in a few seconds.
+2. Enter a command.  If you need help, toggle the slider or enter the command `?`. A successful command should quickly execute its function and then minimize the window.
+3. Hit the global shortcut (`<right shift> + <left shift>`) on your keyboard to bring up the window again throughout the day.
+4. Use the `r` and `l` commands to generate reports that you can use to capture time in an external tool.
+
 ## For developing
 
+* NodeJS v11.14.0+
+* Polymer-cli (installed with `npm install`)
 * Go 1.11+
 * [Robotgo dependencies](https://github.com/go-vgo/robotgo#requirements)
     * Ubuntu 19.04 seems to also need `apt install libxkbcommon-x11-dev`
 
+### Building
 
-# Getting Started
+[Mage](https://magefile.org) provides build, install, and packing functions.
 
-1. Run the program
-2. Hit the global shortcut (`<right shift> + <left shift>`) on your keyboard to bring up the window
-3. If you need help, toggle the slider or enter the command '?'
+To run all build steps and install:
+
+`go run mage.go`
+
+To run all build stages:
+
+`go run mage.go build`
+
+To run an individual build stage:
+
+```
+go run mage.go buildui
+go run mage.go buildgo
+go run mage.go buildpkg
+```
 
 # Architecture
 
