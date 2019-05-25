@@ -7,3 +7,5 @@
 go generate
 
 echo "Now run the local build command for your operating system"
+
+# xgo --targets=linux/amd64,darwin/amd64,windows/amd64 -branch master -dest build/ github.com/mcdafydd/omw

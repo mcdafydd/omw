@@ -1,6 +1,6 @@
 #!/bin/sh
 
-APP=outofmyway-timetracker
+APP=omw
 APPDIR=build/${APP}_0.1.5
 
 mkdir -p $APPDIR/usr/bin

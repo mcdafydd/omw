@@ -2,10 +2,10 @@
 
 *** (5/4/19) In active development, it may not work exactly as described ***
 
-A minimalist time tracker.  The primary purposes of this tool are two-fold:
+A minimalist time tracker.  The primary purposes of this tool are:
 
 1. Help a user track time and tasks without getting in the way of flow
-2. Provide a simple reporting interface to help transfer tasks to an external system
+2. Provide a simple, extendable reporting interface to help transfer tasks to an external system
 
 Any contributions to the tool will not impact these purposes.
 

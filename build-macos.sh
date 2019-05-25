@@ -1,6 +1,6 @@
 #!/bin/sh
 
-APP="OutOfMyWay.app"
+APP="Omw.app"
 mkdir -p build/$APP/Contents/{MacOS,Resources}
 
 go build -o build/$APP/Contents/MacOS/OutOfMyWay

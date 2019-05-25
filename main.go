@@ -13,6 +13,7 @@ import (
 	"runtime"
 	"sync"
 
+	"github.com/mcdafydd/omw/cmd"
 	hook "github.com/robotn/gohook"
 	"github.com/zserge/lorca"
 )
@@ -96,11 +97,19 @@ func processOutput(cmd *exec.Cmd) {
 }
 
 func main() {
-	args := []string{}
+	cmd.Execute()
+
+	log.Println("exiting...")
+}
+
+// Server does the following:
+// 1. Creates the Lorca object
+// 2. Loads the Chrome interface and HTML/JS content
+// 3. Starts the hotkey listener
+func Server(args []string) {
 	if runtime.GOOS == "linux" {
 		args = append(args, "--class=Lorca")
 	}
-
 	ui, err := lorca.New("", "", 480, 200, args...)
 	if err != nil {
 		log.Fatal(err)
@@ -129,7 +138,6 @@ func main() {
 	defer ln.Close()
 	go http.Serve(ln, http.FileServer(FS))
 	ui.Load(fmt.Sprintf("http://%s", ln.Addr()))
-
 	// You may use console.log to debug your JS code, it will be printed via
 	// log.Println(). Also exceptions are printed in a similar manner.
 	/*ui.Eval(`
@@ -145,17 +153,22 @@ func main() {
 	// end hook
 	defer hook.End()
 
+	EventLoop(c, &sigc, ui, &hotkey)
+}
+
+// EventLoop is the main loop that handles global hotkey events
+func EventLoop(c *worker, sigc *chan os.Signal, ui lorca.UI, hotkey *chan hook.Event) {
 	// main event loop
 	keepLooping := true
 	for keepLooping {
 		select {
-		case <-sigc:
+		case <-*sigc:
 			keepLooping = false
 			break
 		case <-ui.Done():
 			keepLooping = false
 			break
-		case ev := <-hotkey:
+		case ev := <-*hotkey:
 			if ev.Rawcode == 65505 && ev.Kind == hook.KeyDown {
 				fmt.Printf("Got left shift down = %#v\n", ev)
 				c.leftShiftDown = true
@@ -176,13 +189,10 @@ func main() {
 		}
 	}
 
-	log.Println("exiting...")
 	select {
-	case <-sigc:
+	case <-*sigc:
 	case <-ui.Done():
 	}
-
-	log.Println("exiting...")
 }
 
 // Maximize Brings the chrome window into visibility
