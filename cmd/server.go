@@ -17,6 +17,7 @@ package cmd
 import (
 	"fmt"
 
+	"github.com/mcdafydd/omw/server"
 	"github.com/spf13/cobra"
 )
 
@@ -30,8 +31,9 @@ var serverCmd = &cobra.Command{
 
 	- Listens for the global hotkey <LEFT_SHIFT>+<RIGHT_SHIFT> that
 	triggers the GUI`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("server called")
+		return server.Run(args)
 	},
 }
 
