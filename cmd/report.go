@@ -22,9 +22,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-// Flag vars
+// From specifies the start date of the report output
 var From string
+
+// To specified the end date of the report output
 var To string
+
+var defaultTs string
 
 // reportCmd represents the report command
 var reportCmd = &cobra.Command{
@@ -39,7 +43,10 @@ var reportCmd = &cobra.Command{
 	to provide start and end dates for the report.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("report called")
-		client.Report()
+		if len(args) == 0 {
+			client.Report(defaultTs, defaultTs)
+		}
+		client.Report(defaultTs, defaultTs)
 	},
 }
 
@@ -48,10 +55,6 @@ func init() {
 	defaultTs := strings.Fields(now.String())[0] // Should be YYYY-MM-DD
 
 	rootCmd.AddCommand(reportCmd)
-	reportCmd.Flags().StringVarP(&From, "from", "f", defaultTs, "Beginning date for report period - beginning today if not specified")
-	reportCmd.Flags().StringVarP(&To, "to", "t", defaultTs, "End date for report period - end of today if not specified")
-
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// reportCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	reportCmd.Flags().StringVarP(&From, "from", "f", defaultTs, "Beginning date for report output - beginning today if not specified")
+	reportCmd.Flags().StringVarP(&To, "to", "t", defaultTs, "End date for report output - end of today if not specified")
 }

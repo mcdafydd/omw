@@ -61,8 +61,8 @@ func (b *Backend) Add(task string) {
 }
 
 // Edit opens your current timesheet in your default editor
-func (b *Backend) Edit() {
-	return
+func (b *Backend) Edit() error {
+	return nil
 }
 
 // Hello appends a newline and then another line to end of timesheet with current time
@@ -72,7 +72,7 @@ func (b *Backend) Hello() {
 }
 
 // Report outputs various report formats to specified location (for now - just the screen)
-func (b *Backend) Report() {
+func (b *Backend) Report(start, end string) {
 	return
 }
 

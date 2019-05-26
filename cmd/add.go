@@ -16,6 +16,8 @@ package cmd
 
 import (
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -27,7 +29,12 @@ var addCmd = &cobra.Command{
 	Long:  `Add <task> should be run at the end of a task before switching focus.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("add called")
-		client.Add("task")
+		if len(args) == 0 {
+			fmt.Fprintf(os.Stderr, "Missing task after add command!\n")
+			os.Exit(1)
+		}
+		task := strings.Join(args, " ")
+		client.Add(task)
 		return nil
 	},
 }

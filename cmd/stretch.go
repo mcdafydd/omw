@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -28,6 +29,10 @@ var stretchCmd = &cobra.Command{
 	with the current time, effectively 'stretching' it's total time.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("stretch called")
+		if len(args) > 0 {
+			fmt.Fprintf(os.Stderr, "Unused arguments provided after stretch command\n")
+			os.Exit(1)
+		}
 		client.Stretch()
 	},
 }

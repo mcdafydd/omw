@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -32,6 +33,10 @@ var serverCmd = &cobra.Command{
 	triggers the GUI`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("server called")
+		if len(args) > 0 {
+			fmt.Fprintf(os.Stderr, "Unused arguments provided after server command\n")
+			os.Exit(1)
+		}
 		return client.Run(args)
 	},
 }

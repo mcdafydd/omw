@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 )
@@ -31,6 +32,10 @@ var helloCmd = &cobra.Command{
 	start of your first task.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("hello called")
+		if len(args) > 0 {
+			fmt.Fprintf(os.Stderr, "Unused arguments provided after hello command\n")
+			os.Exit(1)
+		}
 		client.Hello()
 	},
 }
