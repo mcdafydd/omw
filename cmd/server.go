@@ -1,4 +1,4 @@
-// Copyright © 2019 NAME HERE <EMAIL ADDRESS>
+// Copyright © 2019 David McPike
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,6 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/mcdafydd/omw/server"
 	"github.com/spf13/cobra"
 )
 
@@ -33,7 +32,7 @@ var serverCmd = &cobra.Command{
 	triggers the GUI`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("server called")
-		return server.Run(args)
+		return client.Run(args)
 	},
 }
 

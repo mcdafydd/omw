@@ -1,4 +1,4 @@
-// Copyright © 2019 NAME HERE <EMAIL ADDRESS>
+// Copyright © 2019 David McPike
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,7 @@ var editCmd = &cobra.Command{
 	Long:  `Opens a new window to view/edit your current timesheet using your default editor.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("edit called")
+		client.Edit()
 		return nil
 	},
 }

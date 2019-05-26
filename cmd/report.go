@@ -1,4 +1,4 @@
-// Copyright © 2019 NAME HERE <EMAIL ADDRESS>
+// Copyright © 2019 David McPike
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,9 +16,15 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
+
+// Flag vars
+var From string
+var To string
 
 // reportCmd represents the report command
 var reportCmd = &cobra.Command{
@@ -33,17 +39,17 @@ var reportCmd = &cobra.Command{
 	to provide start and end dates for the report.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("report called")
+		client.Report()
 	},
 }
 
 func init() {
+	now := time.Now()
+	defaultTs := strings.Fields(now.String())[0] // Should be YYYY-MM-DD
+
 	rootCmd.AddCommand(reportCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// reportCmd.PersistentFlags().String("foo", "", "A help for foo")
+	reportCmd.Flags().StringVarP(&From, "from", "f", defaultTs, "Beginning date for report period - beginning today if not specified")
+	reportCmd.Flags().StringVarP(&To, "to", "t", defaultTs, "End date for report period - end of today if not specified")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:

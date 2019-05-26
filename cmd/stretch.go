@@ -1,4 +1,4 @@
-// Copyright © 2019 NAME HERE <EMAIL ADDRESS>
+// Copyright © 2019 David McPike
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ var stretchCmd = &cobra.Command{
 	with the current time, effectively 'stretching' it's total time.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("stretch called")
+		client.Stretch()
 	},
 }
 

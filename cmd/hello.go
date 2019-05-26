@@ -1,4 +1,4 @@
-// Copyright © 2019 NAME HERE <EMAIL ADDRESS>
+// Copyright © 2019 David McPike
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -31,6 +31,7 @@ var helloCmd = &cobra.Command{
 	start of your first task.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Println("hello called")
+		client.Hello()
 	},
 }
 

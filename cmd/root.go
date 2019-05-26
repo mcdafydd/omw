@@ -1,4 +1,4 @@
-// Copyright © 2019 NAME HERE <EMAIL ADDRESS>
+// Copyright © 2019 David McPike
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,13 +17,33 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/user"
 
+	"github.com/inconshreveable/mousetrap"
+	"github.com/mcdafydd/omw/backend"
 	homedir "github.com/mitchellh/go-homedir"
+	"github.com/pkg/errors"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var cfgFile string
+
+const (
+	// DefaultDir is the default directory inside the user's home directory
+	// that will store omw data files
+	DefaultDir = ".local/share/omw"
+	// DefaultFile is the default filename for the primary time tracking data log
+	DefaultFile = "omw.log"
+)
+
+var client *backend.Backend
+
+// MousetrapHelpText Set MousetrapHelpText to an empty string to disable Cobra's
+// automatic display of a warning to Windows users who double-click the binary
+// from Windows Explorer.  We want to have our own mousetrap and alias it to
+// 'omw server'.
+var MousetrapHelpText string
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
@@ -36,14 +56,19 @@ var rootCmd = &cobra.Command{
 	1. Help a user track time and tasks without getting in the way of flow
 	2. Provide a simple, extendable reporting interface to help transfer 
 	tasks to an external system`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	//	Run: func(cmd *cobra.Command, args []string) { },
+	RunE: func(cmd *cobra.Command, args []string) error {
+		if mousetrap.StartedByExplorer() {
+			rootCmd.SetArgs([]string{"sub", "arg1", "arg2"})
+			rootCmd.Execute()
+			fmt.Println("running backend from explorer")
+		}
+		return nil
+	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute() {
+func Execute(user *user.User) {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -53,14 +78,30 @@ func Execute() {
 func init() {
 	cobra.OnInitialize(initConfig)
 
+	home, err := homedir.Dir()
+	if err != nil {
+		errors.Wrap(err, "homedir.Dir() returned error")
+	}
+
+	fm := os.FileMode(700)
+	omwDir := fmt.Sprint("%s/%s", home, DefaultDir)
+	err = os.MkdirAll(omwDir, fm)
+	if err != nil {
+		errors.Wrapf(err, "MkdirAll %s", omwDir)
+	}
+
+	omwFile := fmt.Sprint("%s/%s", omwDir, DefaultFile)
+	fp, err := os.OpenFile(omwFile, os.O_RDONLY|os.O_CREATE, 0644)
+	if err != nil {
+		errors.Wrapf(err, "Can't open or create %s", DefaultFile)
+	}
+
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
-	rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.skel.yaml)")
+	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.skel.yaml)")
 
-	// Cobra also supports local flags, which will only run
-	// when this action is called directly.
-	rootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+	client = backend.Create(omwDir, omwFile)
 }
 
 // initConfig reads in config file and ENV variables if set.
