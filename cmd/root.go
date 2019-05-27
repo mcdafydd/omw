@@ -17,7 +17,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"os/user"
 
 	"github.com/inconshreveable/mousetrap"
 	"github.com/mcdafydd/omw/backend"
@@ -56,19 +55,25 @@ var rootCmd = &cobra.Command{
 	1. Help a user track time and tasks without getting in the way of flow
 	2. Provide a simple, extendable reporting interface to help transfer 
 	tasks to an external system`,
-	RunE: func(cmd *cobra.Command, args []string) error {
+	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		if mousetrap.StartedByExplorer() {
-			rootCmd.SetArgs([]string{"sub", "arg1", "arg2"})
-			rootCmd.Execute()
+			err = serverCmd.RunE(cmd, args)
 			fmt.Println("running backend from explorer")
 		}
-		return nil
+		if err != nil {
+			fmt.Println(err)
+			os.Exit(1)
+		}
+		return err
+	},
+	PersistentPostRunE: func(cmd *cobra.Command, args []string) (err error) {
+		return client.Close()
 	},
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
 // This is called by main.main(). It only needs to happen once to the rootCmd.
-func Execute(user *user.User) {
+func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
@@ -83,15 +88,15 @@ func init() {
 		errors.Wrap(err, "homedir.Dir() returned error")
 	}
 
-	fm := os.FileMode(700)
-	omwDir := fmt.Sprint("%s/%s", home, DefaultDir)
+	fm := os.FileMode(0700)
+	omwDir := fmt.Sprintf("%s/%s", home, DefaultDir)
 	err = os.MkdirAll(omwDir, fm)
 	if err != nil {
 		errors.Wrapf(err, "MkdirAll %s", omwDir)
 	}
 
-	omwFile := fmt.Sprint("%s/%s", omwDir, DefaultFile)
-	fp, err := os.OpenFile(omwFile, os.O_RDONLY|os.O_CREATE, 0644)
+	omwFile := fmt.Sprintf("%s/%s", omwDir, DefaultFile)
+	fp, err := os.OpenFile(omwFile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
 	if err != nil {
 		errors.Wrapf(err, "Can't open or create %s", DefaultFile)
 	}
@@ -99,9 +104,9 @@ func init() {
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.skel.yaml)")
+	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.omw.yaml)")
 
-	client = backend.Create(omwDir, omwFile)
+	client = backend.Create(fp, omwDir, omwFile)
 }
 
 // initConfig reads in config file and ENV variables if set.
@@ -117,9 +122,9 @@ func initConfig() {
 			os.Exit(1)
 		}
 
-		// Search config in home directory with name ".skel" (without extension).
+		// Search config in home directory with name ".omw" (without extension).
 		viper.AddConfigPath(home)
-		viper.SetConfigName(".skel")
+		viper.SetConfigName(".omw")
 	}
 
 	viper.AutomaticEnv() // read in environment variables that match

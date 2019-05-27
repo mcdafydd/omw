@@ -26,7 +26,17 @@ import (
 var addCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Add argument <task> and current time to end of timesheet",
-	Long:  `Add <task> should be run at the end of a task before switching focus.`,
+	Long: `Add <task> should be run at the end of a task before switching focus.
+	The following formats are supported:
+	
+	<task> - normal task completion
+	<task> ** - break task completion will be categorized as break time in report
+	<task> *** - ignore task completion will be categorized as ignored time in report`,
+	Example: `
+	omw add finish meeting with team
+	omw add break **
+	omw add commuting ***
+	`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("add called")
 		if len(args) == 0 {

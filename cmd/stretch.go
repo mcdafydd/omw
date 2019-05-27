@@ -27,13 +27,13 @@ var stretchCmd = &cobra.Command{
 	Short: "Stretch adds a copy of the most recent task to the timesheet",
 	Long: `Stretch creates a copy of the last entry on your timesheet
 	with the current time, effectively 'stretching' it's total time.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("stretch called")
 		if len(args) > 0 {
 			fmt.Fprintf(os.Stderr, "Unused arguments provided after stretch command\n")
 			os.Exit(1)
 		}
-		client.Stretch()
+		return client.Stretch()
 	},
 }
 

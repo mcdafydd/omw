@@ -3,6 +3,7 @@
 package backend
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"log"
@@ -12,7 +13,9 @@ import (
 	"os/exec"
 	"os/signal"
 	"runtime"
+	"strings"
 	"sync"
+	"time"
 
 	hook "github.com/robotn/gohook"
 	"github.com/zserge/lorca"
@@ -24,6 +27,8 @@ import (
 type Backend struct {
 	ctx    context.Context
 	config *config
+	fp     *os.File
+	worker *worker
 }
 
 type config struct {
@@ -44,20 +49,31 @@ type worker struct {
 	rightShiftDown bool
 }
 
+// Add appends the current time and task to your timesheet
+func (b *Backend) Add(task string) {
+	b.addEntry(task)
+	return
+}
+
+// Close cleans up before exiting
+func (b *Backend) Close() (err error) {
+	if b.fp != nil {
+		err = b.fp.Close()
+	}
+	return err
+}
+
 // Create an instance of the structures that operate on OMW data
-func Create(omwDir, omwFile string) *Backend {
+func Create(fp *os.File, omwDir, omwFile string) *Backend {
 	return &Backend{
 		ctx: context.Background(),
 		config: &config{
 			omwDir:  omwDir,
 			omwFile: omwFile,
 		},
+		fp: fp,
+		worker: nil,
 	}
-}
-
-// Add appends the current time and task to your timesheet
-func (b *Backend) Add(task string) {
-	return
 }
 
 // Edit opens your current timesheet in your default editor
@@ -68,6 +84,8 @@ func (b *Backend) Edit() error {
 // Hello appends a newline and then another line to end of timesheet with current time
 // and the word "Hello".  Meant to be run at the beginning of a new work day
 func (b *Backend) Hello() {
+	b.fp.WriteString("\n")
+	b.addEntry("hello")
 	return
 }
 
@@ -96,10 +114,10 @@ func (b *Backend) Run(args []string) error {
 	})
 
 	// Create and bind Go object to the UI
-	c := &worker{ui: ui, cmd: ""}
-	ui.Bind("runUtt", c.RunUTT)
-	ui.Bind("minimize", c.Minimize)
-	ui.Bind("restore", c.Restore)
+	b.worker = &worker{ui: ui, cmd: ""}
+	ui.Bind("runUtt", b.worker.RunUTT)
+	ui.Bind("minimize", b.worker.Minimize)
+	ui.Bind("restore", b.worker.Restore)
 
 	// Load HTML.
 	// You may also use `data:text/html,<base64>` approach to load initial HTML,
@@ -127,14 +145,39 @@ func (b *Backend) Run(args []string) error {
 	// end hook
 	defer hook.End()
 
-	eventLoop(c, &sigc, ui, &hotkey)
+	eventLoop(b.worker, &sigc, ui, &hotkey)
 
 	return nil
 }
 
 // Stretch append current timestamp to end of timesheet and copy previous task
-func (b *Backend) Stretch() {
-	return
+// fp is opened in append mode, so seek to beginning of file first
+func (b *Backend) Stretch() error {
+	buf := []byte{}
+	_, err := b.fp.ReadAt(buf, 0)
+	if err != nil {
+		return err
+	}
+	_, lastLine, err := bufio.ScanLines(buf, true)
+	if err != nil {
+		return err
+	}
+	lastEntry := strings.Fields(string(lastLine))[1:]
+	b.addEntry(strings.Join(lastEntry, " "))
+	return err
+}
+
+func (b *Backend) addEntry(s string) {
+	ts := time.Now()
+	tsFmt := fmt.Sprintf("%d-%d-%d %d:%d",
+		ts.Year(),
+		ts.Month(),
+		ts.Day(),
+		ts.Hour(),
+		ts.Minute(),
+	)
+	entry := fmt.Sprintf("%s\t%s\n", tsFmt, s)
+	b.fp.WriteString(entry)
 }
 
 // RunUTT Executes 'utt' on the command-line and prints the results
