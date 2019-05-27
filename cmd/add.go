@@ -17,7 +17,6 @@ package cmd
 import (
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -27,11 +26,9 @@ var addCmd = &cobra.Command{
 	Use:   "add",
 	Short: "Add argument <task> and current time to end of timesheet",
 	Long: `Add <task> should be run at the end of a task before switching focus.
-	The following formats are supported:
-	
-	<task> - normal task completion
-	<task> ** - break task completion will be categorized as break time in report
-	<task> *** - ignore task completion will be categorized as ignored time in report`,
+	Add '**' after your task to categorize it as break time (ie: lunch)
+	Add '***' after your task to categorize it as time to ignore (ie: commuting)
+	`,
 	Example: `
 	omw add finish meeting with team
 	omw add break **
@@ -43,8 +40,7 @@ var addCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "Missing task after add command!\n")
 			os.Exit(1)
 		}
-		task := strings.Join(args, " ")
-		client.Add(task)
+		client.Add(args)
 		return nil
 	},
 }

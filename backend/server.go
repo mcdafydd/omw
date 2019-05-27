@@ -50,13 +50,22 @@ type worker struct {
 }
 
 // Add appends the current time and task to your timesheet
-func (b *Backend) Add(task string) {
-	b.addEntry(task)
+func (b *Backend) Add(args []string) {
+	if b.worker != nil {
+		b.worker.Lock()
+		defer b.worker.Unlock()	
+	}
+	task := strings.Join(args, " ")
+	addEntry(b.fp, task)
 	return
 }
 
 // Close cleans up before exiting
 func (b *Backend) Close() (err error) {
+	if b.worker != nil {
+		b.worker.Lock()
+		defer b.worker.Unlock()	
+	}
 	if b.fp != nil {
 		err = b.fp.Close()
 	}
@@ -76,21 +85,44 @@ func Create(fp *os.File, omwDir, omwFile string) *Backend {
 	}
 }
 
-// Edit opens your current timesheet in your default editor
+// Edit opens your current timesheet in your default editor or
+// in the editor specified by the EDITOR environment variable
 func (b *Backend) Edit() error {
-	return nil
+	if b.worker != nil {
+		b.worker.Lock()
+		defer b.worker.Unlock()	
+	}
+	editor := DefaultEditor
+	if preferred := os.Getenv("EDITOR"); preferred != "" {
+		editor = preferred
+	}
+	argv := []string{b.config.omwFile}
+	fmt.Printf("STUFF = %+v \n\n %+v \n\n %+v\n\n", b, editor, argv)
+	cmd := exec.CommandContext(b.ctx, editor, argv...)
+	// should work if run from terminal
+	cmd.Stdin = os.Stdin
+    cmd.Stdout = os.Stdout
+	return runCommand(cmd)
 }
 
 // Hello appends a newline and then another line to end of timesheet with current time
 // and the word "Hello".  Meant to be run at the beginning of a new work day
 func (b *Backend) Hello() {
+	if b.worker != nil {
+		b.worker.Lock()
+		defer b.worker.Unlock()	
+	}
 	b.fp.WriteString("\n")
-	b.addEntry("hello")
+	addEntry(b.fp, "hello")
 	return
 }
 
 // Report outputs various report formats to specified location (for now - just the screen)
 func (b *Backend) Report(start, end string) {
+	if b.worker != nil {
+		b.worker.Lock()
+		defer b.worker.Unlock()	
+	}
 	return
 }
 
@@ -115,7 +147,11 @@ func (b *Backend) Run(args []string) error {
 
 	// Create and bind Go object to the UI
 	b.worker = &worker{ui: ui, cmd: ""}
-	ui.Bind("runUtt", b.worker.RunUTT)
+	ui.Bind("OmwAdd", b.Add)
+	ui.Bind("OmwEdit", b.Edit)
+	ui.Bind("OmwHello", b.Hello)
+	ui.Bind("OmwReport", b.Report)
+	ui.Bind("OmwStretch", b.Stretch)
 	ui.Bind("minimize", b.worker.Minimize)
 	ui.Bind("restore", b.worker.Restore)
 
@@ -153,6 +189,10 @@ func (b *Backend) Run(args []string) error {
 // Stretch append current timestamp to end of timesheet and copy previous task
 // fp is opened in append mode, so seek to beginning of file first
 func (b *Backend) Stretch() error {
+	if b.worker != nil {
+		b.worker.Lock()
+		defer b.worker.Unlock()	
+	}
 	buf := []byte{}
 	_, err := b.fp.ReadAt(buf, 0)
 	if err != nil {
@@ -163,11 +203,11 @@ func (b *Backend) Stretch() error {
 		return err
 	}
 	lastEntry := strings.Fields(string(lastLine))[1:]
-	b.addEntry(strings.Join(lastEntry, " "))
+	addEntry(b.fp, strings.Join(lastEntry, " "))
 	return err
 }
 
-func (b *Backend) addEntry(s string) {
+func addEntry(fp *os.File, s string) error {
 	ts := time.Now()
 	tsFmt := fmt.Sprintf("%d-%d-%d %d:%d",
 		ts.Year(),
@@ -177,7 +217,8 @@ func (b *Backend) addEntry(s string) {
 		ts.Minute(),
 	)
 	entry := fmt.Sprintf("%s\t%s\n", tsFmt, s)
-	b.fp.WriteString(entry)
+	fp.WriteString(entry)
+	return nil
 }
 
 // RunUTT Executes 'utt' on the command-line and prints the results
@@ -186,11 +227,11 @@ func (c *worker) RunUTT(argv []string) {
 	defer c.Unlock()
 	if len(argv) == 1 {
 		cmd := exec.Command("utt", argv[0])
-		processOutput(cmd)
+		runCommand(cmd)
 	} else if len(argv) > 1 {
 		args := append([]string{"utt"}, argv...)
 		cmd := exec.Command(args[0], args[1:]...)
-		processOutput(cmd)
+		runCommand(cmd)
 	} else {
 		return
 	}
@@ -235,15 +276,14 @@ func (c *worker) Restore() {
 	}
 }
 
-// processOutput executes cmd and handles any results
-func processOutput(cmd *exec.Cmd) {
-	out, err := cmd.Output()
+// runCommand Executes cmd and handles any output
+func runCommand(cmd *exec.Cmd) error {
+	err := cmd.Run()
 	if err != nil {
 		log.Println(err)
-	} else {
-		fmt.Printf(string(out))
+		return err
 	}
-	return
+	return nil
 }
 
 // eventLoop is the main loop that handles global hotkey events
