@@ -64,6 +64,7 @@ var rootCmd = &cobra.Command{
 			fmt.Println(err)
 			os.Exit(1)
 		}
+		err = serverCmd.RunE(cmd, args)
 		return err
 	},
 	PersistentPostRunE: func(cmd *cobra.Command, args []string) (err error) {
@@ -96,17 +97,21 @@ func init() {
 	}
 
 	omwFile := fmt.Sprintf("%s/%s", omwDir, DefaultFile)
-	fp, err := os.OpenFile(omwFile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
-	if err != nil {
-		errors.Wrapf(err, "Can't open or create %s", DefaultFile)
+	if _, err := os.Stat(omwFile); os.IsNotExist(err) {
+		fmt.Println("file does not exist - creating file", omwFile)
+		fp, err := os.OpenFile(omwFile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
+		if err != nil {
+			errors.Wrapf(err, "Can't open or create %s", omwFile)
+		}
+		fp.Close()
 	}
+
+	client = backend.Create(nil, omwDir, omwFile)
 
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.omw.yaml)")
-
-	client = backend.Create(fp, omwDir, omwFile)
 }
 
 // initConfig reads in config file and ENV variables if set.

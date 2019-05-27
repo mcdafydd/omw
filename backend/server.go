@@ -6,6 +6,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"net/http"
@@ -17,6 +18,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/pkg/errors"
 	hook "github.com/robotn/gohook"
 	"github.com/zserge/lorca"
 )
@@ -53,10 +55,10 @@ type worker struct {
 func (b *Backend) Add(args []string) {
 	if b.worker != nil {
 		b.worker.Lock()
-		defer b.worker.Unlock()	
+		defer b.worker.Unlock()
 	}
 	task := strings.Join(args, " ")
-	addEntry(b.fp, task)
+	b.addEntry(task)
 	return
 }
 
@@ -64,7 +66,7 @@ func (b *Backend) Add(args []string) {
 func (b *Backend) Close() (err error) {
 	if b.worker != nil {
 		b.worker.Lock()
-		defer b.worker.Unlock()	
+		defer b.worker.Unlock()
 	}
 	if b.fp != nil {
 		err = b.fp.Close()
@@ -80,7 +82,7 @@ func Create(fp *os.File, omwDir, omwFile string) *Backend {
 			omwDir:  omwDir,
 			omwFile: omwFile,
 		},
-		fp: fp,
+		fp:     fp,
 		worker: nil,
 	}
 }
@@ -90,18 +92,17 @@ func Create(fp *os.File, omwDir, omwFile string) *Backend {
 func (b *Backend) Edit() error {
 	if b.worker != nil {
 		b.worker.Lock()
-		defer b.worker.Unlock()	
+		defer b.worker.Unlock()
 	}
 	editor := DefaultEditor
 	if preferred := os.Getenv("EDITOR"); preferred != "" {
 		editor = preferred
 	}
 	argv := []string{b.config.omwFile}
-	fmt.Printf("STUFF = %+v \n\n %+v \n\n %+v\n\n", b, editor, argv)
 	cmd := exec.CommandContext(b.ctx, editor, argv...)
 	// should work if run from terminal
 	cmd.Stdin = os.Stdin
-    cmd.Stdout = os.Stdout
+	cmd.Stdout = os.Stdout
 	return runCommand(cmd)
 }
 
@@ -110,10 +111,10 @@ func (b *Backend) Edit() error {
 func (b *Backend) Hello() {
 	if b.worker != nil {
 		b.worker.Lock()
-		defer b.worker.Unlock()	
+		defer b.worker.Unlock()
 	}
 	b.fp.WriteString("\n")
-	addEntry(b.fp, "hello")
+	b.addEntry("hello")
 	return
 }
 
@@ -121,7 +122,7 @@ func (b *Backend) Hello() {
 func (b *Backend) Report(start, end string) {
 	if b.worker != nil {
 		b.worker.Lock()
-		defer b.worker.Unlock()	
+		defer b.worker.Unlock()
 	}
 	return
 }
@@ -191,23 +192,32 @@ func (b *Backend) Run(args []string) error {
 func (b *Backend) Stretch() error {
 	if b.worker != nil {
 		b.worker.Lock()
-		defer b.worker.Unlock()	
+		defer b.worker.Unlock()
 	}
-	buf := []byte{}
-	_, err := b.fp.ReadAt(buf, 0)
+	buf, err := ioutil.ReadFile(b.config.omwFile)
+	if err != nil {
+		errors.Wrapf(err, "Error reading %s", b.config.omwFile)
+		return err
+	}
+	_, lastLine, err := bufio.ScanLines(buf, false)
 	if err != nil {
 		return err
 	}
-	_, lastLine, err := bufio.ScanLines(buf, true)
-	if err != nil {
-		return err
+	if len(lastLine) > 2 {
+		lastEntry := strings.Fields(string(lastLine))[2:]
+		return b.addEntry(strings.Join(lastEntry, " "))
 	}
-	lastEntry := strings.Fields(string(lastLine))[1:]
-	addEntry(b.fp, strings.Join(lastEntry, " "))
-	return err
+	return nil
 }
 
-func addEntry(fp *os.File, s string) error {
+// addEntry seeks to end of file and appends a formatted string
+// will create a new empty file if file is missing
+func (b *Backend) addEntry(s string) error {
+	fp, err := os.OpenFile(b.config.omwFile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
+	if err != nil {
+		errors.Wrapf(err, "Can't open or create %s", b.config.omwFile)
+		return err
+	}
 	ts := time.Now()
 	tsFmt := fmt.Sprintf("%d-%d-%d %d:%d",
 		ts.Year(),
@@ -218,6 +228,7 @@ func addEntry(fp *os.File, s string) error {
 	)
 	entry := fmt.Sprintf("%s\t%s\n", tsFmt, s)
 	fp.WriteString(entry)
+	fp.Close()
 	return nil
 }
 
