@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mcdafydd/omw/backend"
 	"github.com/spf13/cobra"
 )
 
@@ -44,9 +45,20 @@ var reportCmd = &cobra.Command{
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("report called")
 		if len(args) == 0 {
-			return client.Report(defaultTs, defaultTs)
+			report, err := client.Report(defaultTs, defaultTs, backend.FormatText)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("\n%v\n", *report)
 		}
-		report client.Report(defaultTs, defaultTs)
+		if len(args) == 4 {
+			report, err := client.Report(args[1], args[3], backend.FormatText)
+			if err != nil {
+				return err
+			}
+			fmt.Printf("\n%v\n", *report)
+		}
+		return nil
 	},
 }
 

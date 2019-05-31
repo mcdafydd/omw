@@ -27,8 +27,8 @@ import (
 type formatType int
 
 const (
-	formatJSON = iota
-	formatText
+	FormatJSON = iota
+	FormatText
 )
 
 func (d formatType) String() string {
@@ -153,7 +153,7 @@ func (b *Backend) Hello() {
 	return
 }
 
-// Report outputs various report formats to specified location (for now - just the screen)
+// Report outputs various report formats to specified type (for now - just text)
 func (b *Backend) Report(start, end string, format formatType) (report *Report, err error) {
 	layout := "1999-12-31 23:59"
 	if b.worker != nil {
