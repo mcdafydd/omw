@@ -41,12 +41,12 @@ var reportCmd = &cobra.Command{
 	--from YYYY-MM-DD --to YYYY-MM-DD 
 
 	to provide start and end dates for the report.`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("report called")
 		if len(args) == 0 {
-			client.Report(defaultTs, defaultTs)
+			return client.Report(defaultTs, defaultTs)
 		}
-		client.Report(defaultTs, defaultTs)
+		report client.Report(defaultTs, defaultTs)
 	},
 }
 

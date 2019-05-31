@@ -13,6 +13,7 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"regexp"
 	"runtime"
 	"strings"
 	"sync"
@@ -23,6 +24,17 @@ import (
 	"github.com/zserge/lorca"
 )
 
+type formatType int
+
+const (
+	formatJSON = iota
+	formatText
+)
+
+func (d formatType) String() string {
+	return [...]string{"JSON", "Text"}[d]
+}
+
 // Backend represents the context and configuration of every instance of the omw command
 // Immediate commands (like omw add, omw report), immediately affect the timesheet
 // Long-running commands (like omw server), maintain a context
@@ -31,6 +43,29 @@ type Backend struct {
 	config *config
 	fp     *os.File
 	worker *worker
+}
+
+// Entry describes a single entry in the timesheet
+// Used by omw report
+type Entry struct {
+	Ts       time.Time     `json:"timestamp"`
+	Duration time.Duration `json:"duration"`
+	Task     string        `json:"task"`
+	Ignore   bool          `json:"ignore"`
+	Brk      bool          `json:"break"`
+}
+
+// Report describes a report
+// previous is only used during report calculation to
+// populate Entry.Duration
+type Report struct {
+	From      time.Time     `json:"reportFrom"`
+	To        time.Time     `json:"reportTo"`
+	IgnoreHrs time.Duration `json:"ignoreTotalHours"`
+	BrkHrs    time.Duration `json:"breakTotalHours"`
+	TaskHrs   time.Duration `json:"taskTotalHours"`
+	Entries   []Entry       `json:"entries"`
+	previous  *time.Time
 }
 
 type config struct {
@@ -119,12 +154,67 @@ func (b *Backend) Hello() {
 }
 
 // Report outputs various report formats to specified location (for now - just the screen)
-func (b *Backend) Report(start, end string) {
+func (b *Backend) Report(start, end string, format formatType) (report *Report, err error) {
+	layout := "1999-12-31 23:59"
 	if b.worker != nil {
 		b.worker.Lock()
 		defer b.worker.Unlock()
 	}
-	return
+	report.From, err = time.Parse(layout, start)
+	if err != nil {
+		return nil, err
+	}
+	report.To, err = time.Parse(layout, end)
+	if err != nil {
+		return nil, err
+	}
+	r, err := os.Open(b.config.omwFile)
+	if err != nil {
+		return nil, err
+	}
+	scanner := bufio.NewScanner(r)
+	scanner.Split(bufio.ScanLines)
+	for scanner.Scan() {
+		line := strings.Fields(scanner.Text())
+		if len(line) <= 2 {
+			continue
+		}
+		ts, err := time.Parse(layout, strings.Join(line[:2], " "))
+		if err != nil {
+			continue
+		}
+		if ts.Before(report.From) || ts.After(report.To) {
+			continue
+		}
+		entry, err := b.parseEntry(strings.Join(line[2:], " "))
+		if err != nil {
+			continue
+		}
+		entry.Ts, err = time.Parse(layout, strings.Join(line[:2], " "))
+		if err != nil {
+			continue
+		}
+		// Should indicate first task in requested report time period
+		if report.previous == nil {
+			report.previous = &entry.Ts
+			report.Entries = append((*report).Entries, *entry)
+			continue
+		}
+		entry.Duration = entry.Ts.Sub(*report.previous)
+		// Use else if to make it clear we only process the event's
+		// duration one time
+		if entry.Ignore == false && entry.Brk == false {
+			report.TaskHrs += entry.Duration
+		} else if entry.Ignore == true && entry.Brk == false {
+			report.IgnoreHrs += entry.Duration
+		} else if entry.Ignore == false && entry.Brk == true {
+			report.BrkHrs += entry.Duration
+		} else if entry.Ignore == true && entry.Brk == true {
+			return nil, errors.New("Entry has both break and ignore set to true.  Something's wrong")
+		}
+		report.Entries = append((*report).Entries, *entry)
+	}
+	return report, nil
 }
 
 // Run does the following:
@@ -203,11 +293,11 @@ func (b *Backend) Stretch() error {
 	if err != nil {
 		return err
 	}
-	if len(lastLine) > 2 {
-		lastEntry := strings.Fields(string(lastLine))[2:]
-		return b.addEntry(strings.Join(lastEntry, " "))
+	if len(lastLine) <= 2 {
+		return errors.New("Missing task description")
 	}
-	return nil
+	lastEntry := strings.Fields(string(lastLine))[2:]
+	return b.addEntry(strings.Join(lastEntry, " "))
 }
 
 // addEntry seeks to end of file and appends a formatted string
@@ -232,20 +322,22 @@ func (b *Backend) addEntry(s string) error {
 	return nil
 }
 
-// RunUTT Executes 'utt' on the command-line and prints the results
-func (c *worker) RunUTT(argv []string) {
-	c.Lock()
-	defer c.Unlock()
-	if len(argv) == 1 {
-		cmd := exec.Command("utt", argv[0])
-		runCommand(cmd)
-	} else if len(argv) > 1 {
-		args := append([]string{"utt"}, argv...)
-		cmd := exec.Command(args[0], args[1:]...)
-		runCommand(cmd)
-	} else {
-		return
+func (b *Backend) parseEntry(s string) (*Entry, error) {
+	re := regexp.MustCompile(`(?P<task>[a-zA-Z0-9,._+:@%/-]*) ?(?P<mod>\*\*\*?)*`)
+	matches := re.FindStringSubmatch(s)
+	if matches == nil {
+		return nil, errors.New("Invalid string")
 	}
+	entry := &Entry{
+		Task: matches[1],
+	}
+	if matches[2] == "**" {
+		entry.Brk = true
+	}
+	if matches[2] == "***" {
+		entry.Ignore = true
+	}
+	return entry, nil
 }
 
 // Minimize Hides the application window
