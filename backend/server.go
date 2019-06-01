@@ -27,7 +27,9 @@ import (
 type formatType int
 
 const (
+	// FormatJSON indicates that user requested JSON report format output
 	FormatJSON = iota
+	// FormatText indicates that user requested text template report format output
 	FormatText
 )
 
@@ -154,35 +156,43 @@ func (b *Backend) Hello() {
 }
 
 // Report outputs various report formats to specified type (for now - just text)
-func (b *Backend) Report(start, end string, format formatType) (report *Report, err error) {
-	layout := "1999-12-31 23:59"
+// We add 24 hours to the parsed end time so that when a user specifies
+// --from 2019-01-01 --to 2019-01-02
+// that translates to "report on tasks that occurred between 2019-01-01 00:00
+// and "2019-01-03 00:00"
+func (b *Backend) Report(start, end string, format formatType) (report Report, err error) {
+	layout := "2006-1-2" // should support optional leading zeros
+	layoutEvent := "2006-1-2 15:04"
 	if b.worker != nil {
 		b.worker.Lock()
 		defer b.worker.Unlock()
 	}
 	report.From, err = time.Parse(layout, start)
 	if err != nil {
-		return nil, err
+		return report, err
 	}
 	report.To, err = time.Parse(layout, end)
 	if err != nil {
-		return nil, err
+		return report, err
 	}
+	report.To = report.To.Add(24 * time.Hour)
 	r, err := os.Open(b.config.omwFile)
 	if err != nil {
-		return nil, err
+		return report, err
 	}
 	scanner := bufio.NewScanner(r)
 	scanner.Split(bufio.ScanLines)
 	for scanner.Scan() {
 		line := strings.Fields(scanner.Text())
+		// Indicates line is missing required information
 		if len(line) <= 2 {
 			continue
 		}
-		ts, err := time.Parse(layout, strings.Join(line[:2], " "))
+		ts, err := time.Parse(layoutEvent, strings.Join(line[:2], " "))
 		if err != nil {
 			continue
 		}
+		// Indicates task timestamp is outside the requested time period
 		if ts.Before(report.From) || ts.After(report.To) {
 			continue
 		}
@@ -190,14 +200,14 @@ func (b *Backend) Report(start, end string, format formatType) (report *Report, 
 		if err != nil {
 			continue
 		}
-		entry.Ts, err = time.Parse(layout, strings.Join(line[:2], " "))
+		entry.Ts = ts
 		if err != nil {
 			continue
 		}
 		// Should indicate first task in requested report time period
 		if report.previous == nil {
 			report.previous = &entry.Ts
-			report.Entries = append((*report).Entries, *entry)
+			report.Entries = append(report.Entries, *entry)
 			continue
 		}
 		entry.Duration = entry.Ts.Sub(*report.previous)
@@ -210,9 +220,9 @@ func (b *Backend) Report(start, end string, format formatType) (report *Report, 
 		} else if entry.Ignore == false && entry.Brk == true {
 			report.BrkHrs += entry.Duration
 		} else if entry.Ignore == true && entry.Brk == true {
-			return nil, errors.New("Entry has both break and ignore set to true.  Something's wrong")
+			return report, errors.New("Entry has both break and ignore set to true.  Something's wrong")
 		}
-		report.Entries = append((*report).Entries, *entry)
+		report.Entries = append(report.Entries, *entry)
 	}
 	return report, nil
 }

@@ -64,7 +64,7 @@ var rootCmd = &cobra.Command{
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		err = serverCmd.RunE(cmd, args)
+		err = reportCmd.RunE(cmd, args)
 		return err
 	},
 	PersistentPostRunE: func(cmd *cobra.Command, args []string) (err error) {

@@ -16,8 +16,6 @@ package cmd
 
 import (
 	"fmt"
-	"strings"
-	"time"
 
 	"github.com/mcdafydd/omw/backend"
 	"github.com/spf13/cobra"
@@ -29,7 +27,7 @@ var From string
 // To specified the end date of the report output
 var To string
 
-var defaultTs string
+var defaultTs string = "2019-05-27"
 
 // reportCmd represents the report command
 var reportCmd = &cobra.Command{
@@ -44,29 +42,19 @@ var reportCmd = &cobra.Command{
 	to provide start and end dates for the report.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		fmt.Println("report called")
-		if len(args) == 0 {
-			report, err := client.Report(defaultTs, defaultTs, backend.FormatText)
-			if err != nil {
-				return err
-			}
-			fmt.Printf("\n%v\n", *report)
+		report, err := client.Report(From, To, backend.FormatText)
+		if err != nil {
+			return err
 		}
-		if len(args) == 4 {
-			report, err := client.Report(args[1], args[3], backend.FormatText)
-			if err != nil {
-				return err
-			}
-			fmt.Printf("\n%v\n", *report)
-		}
+		fmt.Printf("\n%+v\n", report)
 		return nil
 	},
 }
 
 func init() {
-	now := time.Now()
-	defaultTs := strings.Fields(now.String())[0] // Should be YYYY-MM-DD
-
-	rootCmd.AddCommand(reportCmd)
+	//now := time.Now()
+	//defaultTs = strings.Fields(now.String())[0] // Should be YYYY-MM-DD
 	reportCmd.Flags().StringVarP(&From, "from", "f", defaultTs, "Beginning date for report output - beginning today if not specified")
 	reportCmd.Flags().StringVarP(&To, "to", "t", defaultTs, "End date for report output - end of today if not specified")
+	rootCmd.AddCommand(reportCmd)
 }
