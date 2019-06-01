@@ -5,6 +5,7 @@ package backend
 import (
 	"bufio"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"log"
@@ -17,6 +18,7 @@ import (
 	"runtime"
 	"strings"
 	"sync"
+	"text/template"
 	"time"
 
 	"github.com/pkg/errors"
@@ -37,6 +39,25 @@ func (d formatType) String() string {
 	return [...]string{"JSON", "Text"}[d]
 }
 
+// TemplateString defines the template used to output a Report() with FormatText
+var TemplateString = `{{define "Entry"}}
+({{- .Duration}}) {{.Start.Hour}}:{{.Start.Minute}}-{{.Ts.Hour}}:{{.Ts.Minute}} -- {{.Task -}}
+{{end}}
+
+Report Start: {{.From}}
+Report End: {{.To}}
+Total Task Hours: {{.TaskHrs}}
+Total Break Hours: {{.BrkHrs}}
+Total Ignore Hours: {{.IgnoreHrs}}
+{{$day := "" }}
+{{range .Entries}}
+{{- if ne $day .Start.Weekday.String}}
+----------------------- {{$day}} -----------------------
+{{end -}}{{- $day = .Start.Weekday.String -}}
+{{- template "Entry" . -}}
+{{- end -}}
+`
+
 // Backend represents the context and configuration of every instance of the omw command
 // Immediate commands (like omw add, omw report), immediately affect the timesheet
 // Long-running commands (like omw server), maintain a context
@@ -50,6 +71,7 @@ type Backend struct {
 // Entry describes a single entry in the timesheet
 // Used by omw report
 type Entry struct {
+	Start    time.Time     `json:"startTime"`
 	Ts       time.Time     `json:"timestamp"`
 	Duration time.Duration `json:"duration"`
 	Task     string        `json:"task"`
@@ -160,7 +182,7 @@ func (b *Backend) Hello() {
 // --from 2019-01-01 --to 2019-01-02
 // that translates to "report on tasks that occurred between 2019-01-01 00:00
 // and "2019-01-03 00:00"
-func (b *Backend) Report(start, end string, format formatType) (report Report, err error) {
+func (b *Backend) Report(start, end string, format string) (output string, report Report, err error) {
 	layout := "2006-1-2" // should support optional leading zeros
 	layoutEvent := "2006-1-2 15:04"
 	if b.worker != nil {
@@ -169,16 +191,16 @@ func (b *Backend) Report(start, end string, format formatType) (report Report, e
 	}
 	report.From, err = time.Parse(layout, start)
 	if err != nil {
-		return report, err
+		return "", report, err
 	}
 	report.To, err = time.Parse(layout, end)
 	if err != nil {
-		return report, err
+		return "", report, err
 	}
 	report.To = report.To.Add(24 * time.Hour)
 	r, err := os.Open(b.config.omwFile)
 	if err != nil {
-		return report, err
+		return "", report, err
 	}
 	scanner := bufio.NewScanner(r)
 	scanner.Split(bufio.ScanLines)
@@ -207,10 +229,14 @@ func (b *Backend) Report(start, end string, format formatType) (report Report, e
 		// Should indicate first task in requested report time period
 		if report.previous == nil {
 			report.previous = &entry.Ts
+			entry.Start = entry.Ts
 			report.Entries = append(report.Entries, *entry)
 			continue
 		}
+		entry.Start = *report.previous
 		entry.Duration = entry.Ts.Sub(*report.previous)
+
+		*report.previous = entry.Ts
 		// Use else if to make it clear we only process the event's
 		// duration one time
 		if entry.Ignore == false && entry.Brk == false {
@@ -220,11 +246,16 @@ func (b *Backend) Report(start, end string, format formatType) (report Report, e
 		} else if entry.Ignore == false && entry.Brk == true {
 			report.BrkHrs += entry.Duration
 		} else if entry.Ignore == true && entry.Brk == true {
-			return report, errors.New("Entry has both break and ignore set to true.  Something's wrong")
+			return "", report, errors.New("Entry has both break and ignore set to true.  Something's wrong")
 		}
 		report.Entries = append(report.Entries, *entry)
 	}
-	return report, nil
+	f := FormatText
+	if format == "json" {
+		f = FormatJSON
+	}
+	output, err = b.formatReport(report, formatType(f))
+	return output, report, err
 }
 
 // Run does the following:
@@ -348,6 +379,23 @@ func (b *Backend) parseEntry(s string) (*Entry, error) {
 		entry.Ignore = true
 	}
 	return entry, nil
+}
+
+func (b *Backend) formatReport(report Report, format formatType) (string, error) {
+	if format == FormatJSON {
+		output, err := json.Marshal(report)
+		return string(output), err
+	}
+
+	reportTmpl, err := template.New("report").Parse(TemplateString)
+	if err != nil {
+		return "", err
+	}
+	err = reportTmpl.Execute(os.Stdout, report)
+	if err != nil {
+		panic(err)
+	}
+	return "", nil
 }
 
 // Minimize Hides the application window

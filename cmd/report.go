@@ -16,8 +16,9 @@ package cmd
 
 import (
 	"fmt"
+	"strings"
+	"time"
 
-	"github.com/mcdafydd/omw/backend"
 	"github.com/spf13/cobra"
 )
 
@@ -27,7 +28,10 @@ var From string
 // To specified the end date of the report output
 var To string
 
-var defaultTs string = "2019-05-27"
+// Format defines the string output format for the report (text or json)
+var Format = "text"
+
+var defaultTs string
 
 // reportCmd represents the report command
 var reportCmd = &cobra.Command{
@@ -41,20 +45,20 @@ var reportCmd = &cobra.Command{
 
 	to provide start and end dates for the report.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("report called")
-		report, err := client.Report(From, To, backend.FormatText)
+		output, _, err := client.Report(From, To, Format)
 		if err != nil {
 			return err
 		}
-		fmt.Printf("\n%+v\n", report)
+		fmt.Printf("\n%+v\n", output)
 		return nil
 	},
 }
 
 func init() {
-	//now := time.Now()
-	//defaultTs = strings.Fields(now.String())[0] // Should be YYYY-MM-DD
+	now := time.Now()
+	defaultTs = strings.Fields(now.String())[0] // Should be YYYY-MM-DD
 	reportCmd.Flags().StringVarP(&From, "from", "f", defaultTs, "Beginning date for report output - beginning today if not specified")
 	reportCmd.Flags().StringVarP(&To, "to", "t", defaultTs, "End date for report output - end of today if not specified")
+	reportCmd.Flags().StringVarP(&Format, "format", "a", "text", "Format for report output - valid values are \"text\" or \"json\"")
 	rootCmd.AddCommand(reportCmd)
 }
