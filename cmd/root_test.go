@@ -14,20 +14,30 @@
 
 package cmd
 
-import (
-	"github.com/spf13/cobra"
-)
+import "testing"
 
-// editCmd represents the edit command
-var editCmd = &cobra.Command{
-	Use:   "edit",
-	Short: "Edit your current timesheet",
-	Long:  `Opens a new window to view/edit your current timesheet using your default editor.`,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return client.Edit()
-	},
+func TestExecute(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			Execute()
+		})
+	}
 }
 
-func init() {
-	rootCmd.AddCommand(editCmd)
+func Test_initConfig(t *testing.T) {
+	tests := []struct {
+		name string
+	}{
+		// TODO: Add test cases.
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			initConfig()
+		})
+	}
 }

@@ -35,7 +35,6 @@ var addCmd = &cobra.Command{
 	omw add commuting ***
 	`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("add called")
 		if len(args) == 0 {
 			fmt.Fprintf(os.Stderr, "Missing task after add command!\n")
 			os.Exit(1)

@@ -28,7 +28,6 @@ var stretchCmd = &cobra.Command{
 	Long: `Stretch creates a copy of the last entry on your timesheet
 	with the current time, effectively 'stretching' it's total time.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		fmt.Println("stretch called")
 		if len(args) > 0 {
 			fmt.Fprintf(os.Stderr, "Unused arguments provided after stretch command\n")
 			os.Exit(1)

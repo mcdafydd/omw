@@ -52,9 +52,11 @@ Total Ignore Hours: {{.IgnoreHrs}}
 {{$day := "" }}
 {{range .Entries}}
 {{- if ne $day .Start.Weekday.String}}
------------------------ {{$day}} -----------------------
-{{end -}}{{- $day = .Start.Weekday.String -}}
-{{- template "Entry" . -}}
+{{$day = .Start.Weekday.String}}
+
+----------------------- {{$day}}, {{.Start.Year}}-{{.Start.Month}}-{{.Start.Day}} -----------------------
+{{end -}}
+{{- template "Entry" .}}
 {{- end -}}
 `
 
@@ -232,6 +234,13 @@ func (b *Backend) Report(start, end string, format string) (output string, repor
 			entry.Start = entry.Ts
 			report.Entries = append(report.Entries, *entry)
 			continue
+		}
+		// For now, we explicitly assume that a new day restarts the duration calculation
+		// We may change the marker from new day to first entry of "hello" on a given day
+		// to better allow tracking tasks that extend from a previous day into a new day
+		if entry.Ts.Day() != (*report.previous).Day() {
+			report.previous = &entry.Ts
+			entry.Start = entry.Ts
 		}
 		entry.Start = *report.previous
 		entry.Duration = entry.Ts.Sub(*report.previous)

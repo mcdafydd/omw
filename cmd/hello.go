@@ -31,7 +31,6 @@ var helloCmd = &cobra.Command{
 	It should be run at the beginning of a new work day to signify the 
 	start of your first task.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("hello called")
 		if len(args) > 0 {
 			fmt.Fprintf(os.Stderr, "Unused arguments provided after hello command\n")
 			os.Exit(1)
