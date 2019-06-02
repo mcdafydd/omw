@@ -1,10 +1,12 @@
 // LitElement and html are the basic required imports
 import {LitElement, html, css} from 'lit-element';
 
-// Import 3rd party webcompoents
+// Import 3rd party webcomponents
 import {WiredInput} from 'wired-input';
 import {WiredListbox} from 'wired-listbox';
 import {WiredToggle} from 'wired-toggle';
+
+import {JsonEditor} from './json-editor';
 
 // Create a class definition for your component and extend the LitElement base class
 class TimeTracker extends LitElement {
@@ -12,7 +14,8 @@ class TimeTracker extends LitElement {
     return {
       showHelp: { type: Boolean },
       outputClass: { type: String },
-      outputText: { type: String }
+      outputText: { type: String },
+      reportData: { type: String }
     };
   }
 
@@ -41,6 +44,7 @@ class TimeTracker extends LitElement {
     this.showHelp = false;
     this.outputClass = 'black'; // should be a CSS :host class selector
     this.outputText = '';
+    this.reportData = '{}';
   }
 
   // The render callback renders your element's template. This should be a pure function,
@@ -56,6 +60,7 @@ class TimeTracker extends LitElement {
       </div>
       <div><wired-toggle id="helpme" class="toggle" @change="${this.doToggle}" ?checked=${this.showHelp}></wired-toggle></wired-toggle></div>
       <div class="${this.outputClass}">${this.outputText}</div>
+      <x-json-editor data="${this.reportData}"></x-json-editor>
       <div id="helpText" ?hidden=${!this.showHelp}>${this.getHelpText()}</div>
     `;
   }
@@ -75,12 +80,12 @@ class TimeTracker extends LitElement {
     var cmd = argv.shift();
     switch(cmd) {
       case 'h':
-        runUtt(['hello']);
+        OmwHello();
         minimize();
         break;
       case 'a':
         if (argv.length > 0) {
-          runUtt(['add'].concat(argv));
+          OmwAdd(argv);
           minimize();  
         }
         else {
@@ -88,27 +93,40 @@ class TimeTracker extends LitElement {
         }
         break;
       case 'r':
-        runUtt(['report', '--from', 'monday', '--to', 'friday']);
+        OmwReport('2019-05-27', '2019-06-03', 'json').then((report, err) => {
+          if (err) {
+            this.updateOutput(err, 'red');
+            console.error('OmwReport', err)
+          }
+          else {
+            this.reportData = report;
+          }
+        });
         minimize();
         break;
       case 's':
-        runUtt(['stretch']);
+        OmwStretch();
         minimize();
         break;
       case 'l':
-        runUtt(['report', '--from', 'monday', '--to', 'friday']);
+        OmwReport('2019-05-21', '2019-05-26', 'json').then((report) => {
+          if (err) {
+            this.updateOutput(err, 'red');
+            console.error('OmwReport', err)
+          }
+          else {
+            this.reportData = report;
+          }
+        })
         minimize();
         break;
       case 'e':
-        runUtt(['edit']);
+        OmwEdit();
         minimize();
         break;
       case 'b':
-        runUtt(['add', 'break', '**']);
+        OmwAdd(['break', '**']);
         minimize();
-        break;
-      case 't':
-        this.doToggle();
         break;
       case '?':
         this.doToggle();
@@ -124,15 +142,14 @@ class TimeTracker extends LitElement {
       // Cancel the default action, if needed
       e.preventDefault();
       var el = this.shadowRoot.getElementById('text-input');
-      var cmd = el.value.match(/^([A-z?]+)(\s+[A-z0-9_*-;\s]+)?$/g);    
+      var cmd = el.value.match(/([a-zA-Z0-9,._+:@%/-?]*) ?(\*\*\*?)*/);    
       if (cmd === null) {
-        this.updateOutput('Invalid characters - alphanumeric only', 'red');
+        this.updateOutput('Invalid command - try again or ? for help', 'red');
         el.value = '';
       }
       else {
-        this.handleCommand(el, cmd[0]);  
-        // Clear any previous output
         this.updateOutput('', 'black');
+        this.handleCommand(el, cmd[0]);  
       }
     }
   }
@@ -154,7 +171,7 @@ class TimeTracker extends LitElement {
         <wired-item value="cmdStretch">s (stretch) &lt;task&gt;*** - stretch last task to current time')</wired-item>
         <wired-item value="cmdEdit">e (edit) - edit current timesheet</wired-item>
         <wired-item value="cmdBreak">b (break) - shortcut to add break **</wired-item>
-        <wired-item value="cmdToggle">t (toggle), ?) - toggle this help text display</wired-item>`
+        <wired-item value="cmdToggle">? (help) - toggle this help text display</wired-item>`
   }
 }
 

@@ -1,7 +1,7 @@
 {
-  "name": "outofmyway-timetracker",
-  "version": "0.1.5",
-  "description": "A minimal Lorca Go application",
+  "name": "omw",
+  "version": "0.3.0",
+  "description": "A minimalist time tracker inspired by the Ultimate Time Tracker (UTT)",
   "main": "time-tracker.js",
   "scripts": {
     "build": "node node_modules/polymer-cli/bin/polymer.js build",
@@ -20,6 +20,9 @@
     "polymer-cli": "^1.9.9"
   },
   "dependencies": {
+    "@advanced-rest-client/arc-icons": "^3.0.0",
+    "@advanced-rest-client/json-viewer": "^3.0.0",
+    "@polymer/iron-icon": "^3.0.1",
     "lit-element": "^2.1.0",
     "wired-input": "^1.0.0",
     "wired-listbox": "^1.0.0",

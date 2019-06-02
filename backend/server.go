@@ -64,10 +64,11 @@ Total Ignore Hours: {{.IgnoreHrs}}
 // Immediate commands (like omw add, omw report), immediately affect the timesheet
 // Long-running commands (like omw server), maintain a context
 type Backend struct {
-	ctx    context.Context
-	config *config
-	fp     *os.File
-	worker *worker
+	ctx        context.Context
+	config     *config
+	fp         *os.File
+	lastReport *Report
+	worker     *worker
 }
 
 // Entry describes a single entry in the timesheet
@@ -135,19 +136,6 @@ func (b *Backend) Close() (err error) {
 	return err
 }
 
-// Create an instance of the structures that operate on OMW data
-func Create(fp *os.File, omwDir, omwFile string) *Backend {
-	return &Backend{
-		ctx: context.Background(),
-		config: &config{
-			omwDir:  omwDir,
-			omwFile: omwFile,
-		},
-		fp:     fp,
-		worker: nil,
-	}
-}
-
 // Edit opens your current timesheet in your default editor or
 // in the editor specified by the EDITOR environment variable
 func (b *Backend) Edit() error {
@@ -179,30 +167,51 @@ func (b *Backend) Hello() {
 	return
 }
 
+// Minimize Hides the application window
+// Saves the current window lorca.Bounds
+func (c *worker) Minimize() {
+	c.Lock()
+	defer c.Unlock()
+	bounds, err := c.ui.Bounds()
+	if err != nil {
+		log.Println("[ERROR] Minimize.Bounds(): ", err)
+		return
+	}
+	c.bounds = &bounds
+
+	c.bounds.WindowState = lorca.WindowStateMinimized
+	err = c.ui.SetBounds(*c.bounds)
+	if err != nil {
+		log.Println("[ERROR] Minimize.SetBounds(): ", err)
+		return
+	}
+}
+
 // Report outputs various report formats to specified type (for now - just text)
 // We add 24 hours to the parsed end time so that when a user specifies
 // --from 2019-01-01 --to 2019-01-02
 // that translates to "report on tasks that occurred between 2019-01-01 00:00
 // and "2019-01-03 00:00"
-func (b *Backend) Report(start, end string, format string) (output string, report Report, err error) {
+func (b *Backend) Report(start, end string, format string) (output string, err error) {
 	layout := "2006-1-2" // should support optional leading zeros
 	layoutEvent := "2006-1-2 15:04"
 	if b.worker != nil {
 		b.worker.Lock()
 		defer b.worker.Unlock()
 	}
+	report := Report{}
 	report.From, err = time.Parse(layout, start)
 	if err != nil {
-		return "", report, err
+		return "", err
 	}
 	report.To, err = time.Parse(layout, end)
 	if err != nil {
-		return "", report, err
+		return "", err
 	}
 	report.To = report.To.Add(24 * time.Hour)
 	r, err := os.Open(b.config.omwFile)
 	if err != nil {
-		return "", report, err
+		return "", err
 	}
 	scanner := bufio.NewScanner(r)
 	scanner.Split(bufio.ScanLines)
@@ -255,7 +264,7 @@ func (b *Backend) Report(start, end string, format string) (output string, repor
 		} else if entry.Ignore == false && entry.Brk == true {
 			report.BrkHrs += entry.Duration
 		} else if entry.Ignore == true && entry.Brk == true {
-			return "", report, errors.New("Entry has both break and ignore set to true.  Something's wrong")
+			return "", errors.New("Entry has both break and ignore set to true.  Something's wrong")
 		}
 		report.Entries = append(report.Entries, *entry)
 	}
@@ -263,8 +272,28 @@ func (b *Backend) Report(start, end string, format string) (output string, repor
 	if format == "json" {
 		f = FormatJSON
 	}
+	b.lastReport = &report
 	output, err = b.formatReport(report, formatType(f))
-	return output, report, err
+	return output, err
+}
+
+// Restore Restores previous visible window state after Minimize()
+func (c *worker) Restore() {
+	c.Lock()
+	defer c.Unlock()
+	bounds, err := c.ui.Bounds()
+	if err != nil {
+		log.Println("[ERROR] Minimize.Bounds(): ", err)
+		return
+	}
+	c.bounds = &bounds
+
+	c.bounds.WindowState = lorca.WindowStateNormal
+	err = c.ui.SetBounds(*c.bounds)
+	if err != nil {
+		log.Println("[ERROR] Restore.SetBounds() WindowStateNormal: ", err)
+		return
+	}
 }
 
 // Run does the following:
@@ -275,30 +304,31 @@ func (b *Backend) Run(args []string) error {
 	if runtime.GOOS == "linux" {
 		args = append(args, "--class=Lorca")
 	}
+
 	ui, err := lorca.New("", "", 480, 200, args...)
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer ui.Close()
+	b.worker = &worker{ui: ui, cmd: ""}
+	defer b.worker.ui.Close()
 
 	// A simple way to know when UI is ready (uses body.onload event in JS)
-	ui.Bind("start", func() {
+	b.worker.ui.Bind("start", func() {
 		log.Println("UI is ready")
 	})
 
-	// Create and bind Go object to the UI
-	b.worker = &worker{ui: ui, cmd: ""}
-	ui.Bind("OmwAdd", b.Add)
-	ui.Bind("OmwEdit", b.Edit)
-	ui.Bind("OmwHello", b.Hello)
-	ui.Bind("OmwReport", b.Report)
-	ui.Bind("OmwStretch", b.Stretch)
-	ui.Bind("minimize", b.worker.Minimize)
-	ui.Bind("restore", b.worker.Restore)
+	// Bind functions to Lorca, exposing our Go functions to javascript
+	b.worker.ui.Bind("OmwAdd", b.Add)
+	b.worker.ui.Bind("OmwEdit", b.Edit)
+	b.worker.ui.Bind("OmwHello", b.Hello)
+	b.worker.ui.Bind("OmwReport", b.Report)
+	b.worker.ui.Bind("OmwStretch", b.Stretch)
+	b.worker.ui.Bind("minimize", b.worker.Minimize)
+	b.worker.ui.Bind("restore", b.worker.Restore)
 
 	// Load HTML.
 	// You may also use `data:text/html,<base64>` approach to load initial HTML,
-	// e.g: ui.Load("data:text/html," + url.PathEscape(html))
+	// e.g: b.worker.ui.Load("data:text/html," + url.PathEscape(html))
 
 	ln, err := net.Listen("tcp", "127.0.0.1:0")
 	if err != nil {
@@ -306,10 +336,10 @@ func (b *Backend) Run(args []string) error {
 	}
 	defer ln.Close()
 	go http.Serve(ln, http.FileServer(FS))
-	ui.Load(fmt.Sprintf("http://%s", ln.Addr()))
+	b.worker.ui.Load(fmt.Sprintf("http://%s", ln.Addr()))
 	// You may use console.log to debug your JS code, it will be printed via
 	// log.Println(). Also exceptions are printed in a similar manner.
-	/*ui.Eval(`
+	/*b.worker.ui.Eval(`
 		console.log('Multiple values:', [1, false, {"x":5}]);
 	`)*/
 
@@ -322,7 +352,7 @@ func (b *Backend) Run(args []string) error {
 	// end hook
 	defer hook.End()
 
-	eventLoop(b.worker, &sigc, ui, &hotkey)
+	eventLoop(b.worker, &sigc, &hotkey)
 
 	return nil
 }
@@ -344,7 +374,7 @@ func (b *Backend) Stretch() error {
 		return err
 	}
 	if len(lastLine) <= 2 {
-		return errors.New("Missing task description")
+		return errors.New("Missing task description for stretch")
 	}
 	lastEntry := strings.Fields(string(lastLine))[2:]
 	return b.addEntry(strings.Join(lastEntry, " "))
@@ -369,7 +399,24 @@ func (b *Backend) addEntry(s string) error {
 	entry := fmt.Sprintf("%s\t%s\n", tsFmt, s)
 	fp.WriteString(entry)
 	fp.Close()
-	return nil
+	return err
+}
+
+func (b *Backend) formatReport(report Report, format formatType) (string, error) {
+	if format == FormatJSON {
+		output, err := json.Marshal(report)
+		return string(output), err
+	}
+
+	reportTmpl, err := template.New("report").Parse(TemplateString)
+	if err != nil {
+		return "", err
+	}
+	err = reportTmpl.Execute(os.Stdout, report)
+	if err != nil {
+		panic(err)
+	}
+	return "", nil
 }
 
 func (b *Backend) parseEntry(s string) (*Entry, error) {
@@ -390,74 +437,21 @@ func (b *Backend) parseEntry(s string) (*Entry, error) {
 	return entry, nil
 }
 
-func (b *Backend) formatReport(report Report, format formatType) (string, error) {
-	if format == FormatJSON {
-		output, err := json.Marshal(report)
-		return string(output), err
+// Create an instance of the structures that operate on OMW data
+func Create(fp *os.File, omwDir, omwFile string) *Backend {
+	return &Backend{
+		ctx: context.Background(),
+		config: &config{
+			omwDir:  omwDir,
+			omwFile: omwFile,
+		},
+		fp:     fp,
+		worker: nil,
 	}
-
-	reportTmpl, err := template.New("report").Parse(TemplateString)
-	if err != nil {
-		return "", err
-	}
-	err = reportTmpl.Execute(os.Stdout, report)
-	if err != nil {
-		panic(err)
-	}
-	return "", nil
-}
-
-// Minimize Hides the application window
-// Saves the current window lorca.Bounds
-func (c *worker) Minimize() {
-	c.Lock()
-	defer c.Unlock()
-	bounds, err := c.ui.Bounds()
-	if err != nil {
-		log.Println("[ERROR] Minimize.Bounds(): ", err)
-		return
-	}
-	c.bounds = &bounds
-
-	c.bounds.WindowState = lorca.WindowStateMinimized
-	err = c.ui.SetBounds(*c.bounds)
-	if err != nil {
-		log.Println("[ERROR] Minimize.SetBounds(): ", err)
-		return
-	}
-}
-
-// Restore Restores previous visible window state after Minimize()
-func (c *worker) Restore() {
-	c.Lock()
-	defer c.Unlock()
-	bounds, err := c.ui.Bounds()
-	if err != nil {
-		log.Println("[ERROR] Minimize.Bounds(): ", err)
-		return
-	}
-	c.bounds = &bounds
-
-	c.bounds.WindowState = lorca.WindowStateNormal
-	err = c.ui.SetBounds(*c.bounds)
-	if err != nil {
-		log.Println("[ERROR] Restore.SetBounds() WindowStateNormal: ", err)
-		return
-	}
-}
-
-// runCommand Executes cmd and handles any output
-func runCommand(cmd *exec.Cmd) error {
-	err := cmd.Run()
-	if err != nil {
-		log.Println(err)
-		return err
-	}
-	return nil
 }
 
 // eventLoop is the main loop that handles global hotkey events
-func eventLoop(c *worker, sigc *chan os.Signal, ui lorca.UI, hotkey *chan hook.Event) {
+func eventLoop(c *worker, sigc *chan os.Signal, hotkey *chan hook.Event) {
 	// main event loop
 	keepLooping := true
 	for keepLooping {
@@ -465,7 +459,7 @@ func eventLoop(c *worker, sigc *chan os.Signal, ui lorca.UI, hotkey *chan hook.E
 		case <-*sigc:
 			keepLooping = false
 			break
-		case <-ui.Done():
+		case <-c.ui.Done():
 			keepLooping = false
 			break
 		case ev := <-*hotkey:
@@ -488,9 +482,14 @@ func eventLoop(c *worker, sigc *chan os.Signal, ui lorca.UI, hotkey *chan hook.E
 			}
 		}
 	}
+}
 
-	select {
-	case <-*sigc:
-	case <-ui.Done():
+// runCommand Executes cmd and handles any output
+func runCommand(cmd *exec.Cmd) error {
+	err := cmd.Run()
+	if err != nil {
+		log.Println(err)
+		return err
 	}
+	return nil
 }
