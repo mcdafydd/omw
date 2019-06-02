@@ -45,7 +45,7 @@ var reportCmd = &cobra.Command{
 
 	to provide start and end dates for the report.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		output, _, err := client.Report(From, To, Format)
+		output, err := client.Report(From, To, Format)
 		if err != nil {
 			return err
 		}
