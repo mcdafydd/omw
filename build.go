@@ -29,6 +29,8 @@ func Target() {
 var Default = Install
 
 // BuildUI builds the web app in the www/ directory
+// Only runs npm install if node_modules/ directory doesn't exit
+// Run `go run mage.go UpdateDeps` instead
 func BuildUI(ctx context.Context) (err error) {
 	cwd, err := os.Getwd()
 	if err != nil {
@@ -39,22 +41,24 @@ func BuildUI(ctx context.Context) (err error) {
 	if err != nil {
 		return err
 	}
-	println("Running npm install")
-	err = sh.RunCmd("npm", "install")()
-	if err != nil {
-		return err
+	if _, err := os.Stat("node_modules"); os.IsNotExist(err) {
+		println("Running npm install")
+		err = sh.RunCmd("npm", "install")()
+		if err != nil {
+			return err
+		}
 	}
 	println("Running npm run build")
 	sh.RunCmd("npm", "run", "build")()
 	if err != nil {
 		return err
-    }
+	}
 	err = os.Chdir(cwd)
 	if err != nil {
 		return err
-    }
-    mg.CtxDeps(ctx, Target)
-    
+	}
+	mg.CtxDeps(ctx, Target)
+
 	return nil
 }
 
@@ -101,7 +105,24 @@ func Build(ctx context.Context) error {
 		return err
 	}
 	mg.CtxDeps(ctx, Target)
-	println("Success! Enjoy OuOfMyWay Time Tracker.")
+	println("Success! Enjoy Out Of My Way Time Tracker.")
+
+	return nil
+}
+
+// UpdateDeps runs npm install in the www/ directory
+func UpdateDeps(ctx context.Context) (err error) {
+	println("Changing to www/")
+	err = os.Chdir("www")
+	if err != nil {
+		return err
+	}
+	println("Running npm install")
+	err = sh.RunCmd("npm", "install")()
+	if err != nil {
+		return err
+	}
+	mg.CtxDeps(ctx, Target)
 
 	return nil
 }
