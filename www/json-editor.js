@@ -1,14 +1,20 @@
 // LitElement and html are the basic required imports
 import {LitElement, html, css} from 'lit-element';
 
+// Import 3rd party webcomponents
+import {WiredInput} from 'wired-input';
+import {WiredIconButton} from 'wired-icon-button';
+
 // Other dependencies
-import '@advanced-rest-client/json-viewer/json-viewer.js';
+import '@advanced-rest-client/arc-icons/arc-icons';
+import '@advanced-rest-client/json-viewer/json-viewer';
 
 // Create a class definition for your component and extend the LitElement base class
 class JsonEditor extends LitElement {
   static get properties() {
     return {
       data: { type: String },
+      highlightText: { type: String }
     };
   }
 
@@ -22,6 +28,7 @@ class JsonEditor extends LitElement {
   constructor() {
     super();
     this.data = '{data: "none"}';
+    this.highlightText = '';
   }
 
   // The render callback renders your element's template. This should be a pure function,
@@ -32,8 +39,27 @@ class JsonEditor extends LitElement {
     // Return the template using the html template tag. This will allow lit-html to
     // interpret the dynamic parts of your template.
     return html`
-      <json-viewer json="${this.data}" raw="${this.data}" debug></json-viewer>
+      <h3>Content actions</h3>
+        <json-viewer json="${this.data}" raw="${this.data}" query="${this.highlightText}" debug>
+          <wired-icon-button slot="content-action" title="Copy content to clipboard" icon="arc:content-copy">C</wired-icon-button>
+          <wired-icon-button slot="content-action" title="See raw response" icon="arc:visibility">R</wired-icon-button>
+          <wired-icon-button slot="content-action" title="Save to file" icon="arc:content-copy">S</wired-icon-button>
+          <wired-icon-button slot="content-action" title="(TBD) Fuzzy search Workday projects" icon="arc:content-copy">W</wired-icon-button>
+          <wired-icon-button slot="content-action" title="(TBD) Get Azure Devops references" icon="arc:content-copy">G</wired-icon-button>
+          <wired-input slot="content-action" type="text" id="highlight-input" class="form-control text-input" name="highlight" @keyup="${this.handleHighlight}"></wired-input>
+        </json-viewer>
     `;
+  }
+
+  // handleHighlight process user input, add field content to
+  // json-viewer query attribute
+  handleHighlight(e) {
+    // Cancel the default action, if needed
+    e.preventDefault();
+    var el = this.shadowRoot.getElementById('highlight-input');
+    console.log('got el = ', el);
+    console.dir('got event = ', e);
+    this.highlightText = el.value
   }
 }
 

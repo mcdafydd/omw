@@ -13,6 +13,7 @@ class TimeTracker extends LitElement {
   static get properties() {
     return {
       showHelp: { type: Boolean },
+      showReport: { type: Boolean },
       outputClass: { type: String },
       outputText: { type: String },
       reportData: { type: String }
@@ -42,6 +43,7 @@ class TimeTracker extends LitElement {
   constructor() {
     super();
     this.showHelp = false;
+    this.showReport = false;
     this.outputClass = 'black'; // should be a CSS :host class selector
     this.outputText = '';
     this.reportData = '{}';
@@ -58,15 +60,22 @@ class TimeTracker extends LitElement {
       <div class="user-input">
         <wired-input type="text" autofocus id="text-input" class="form-control text-input" name="command" @keyup="${this.handleInput}"></wired-input>
       </div>
-      <div><wired-toggle id="helpme" class="toggle" @change="${this.doToggle}" ?checked=${this.showHelp}></wired-toggle></wired-toggle></div>
+      <div>
+        <wired-toggle id="helpme" class="toggle" @change="${this.toggleHelp}" ?checked=${this.showHelp}></wired-toggle>
+        <wired-toggle id="reportme" class="toggle" @change="${this.toggleReport}" ?checked=${this.showReport}></wired-toggle>
+      </div>
       <div class="${this.outputClass}">${this.outputText}</div>
-      <x-json-editor data="${this.reportData}"></x-json-editor>
+      <x-json-editor data="${this.reportData}" ?hidden=${!this.showReport}></x-json-editor>
       <div id="helpText" ?hidden=${!this.showHelp}>${this.getHelpText()}</div>
     `;
   }
 
-  doToggle() {
+  toggleHelp() {
     this.showHelp = !this.showHelp;
+  }
+
+  toggleReport() {
+    this.showReport = !this.showReport;
   }
 
   // handleCommand process user input and hide window after handling command without error
@@ -95,10 +104,12 @@ class TimeTracker extends LitElement {
       case 'r':
         OmwReport('2019-05-27', '2019-06-03', 'json').then((report, err) => {
           if (err) {
+            this.showReport = false;
             this.updateOutput(err, 'red');
             console.error('OmwReport', err)
           }
           else {
+            this.showReport = true;
             this.reportData = report;
           }
         });
@@ -111,10 +122,12 @@ class TimeTracker extends LitElement {
       case 'l':
         OmwReport('2019-05-21', '2019-05-26', 'json').then((report) => {
           if (err) {
+            this.showReport = false;
             this.updateOutput(err, 'red');
             console.error('OmwReport', err)
           }
           else {
+            this.showReport = true;
             this.reportData = report;
           }
         })
@@ -129,7 +142,8 @@ class TimeTracker extends LitElement {
         minimize();
         break;
       case '?':
-        this.doToggle();
+        this.showReport = false;
+        this.toggleHelp();
         break;
       default:
         this.updateOutput('Invalid command - try again or ? for help', 'red');
