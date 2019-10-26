@@ -87,10 +87,6 @@ A [LitElement](https://lit-element.polymer-project.org/) web application provide
 
 Planning to move this into [Mage](https://github.com/magefile/mage) to handle the npm/polymer build commands, and investigating [xgo](https://github.com/karalabe/xgo) to handle the CGO cross-compilation necessary for the Robotgo Hook library.  Until then, running the `go build` step on the desired operating system is probably easier.
 
-# History
-
-The original version was written with Python and [Remi](https://github.com/dddomodossola/remi/tree/master/remi).lElectron would've worked, but Lorca gives us nice Go cross-platform capabilities and is much less bloated.
-
 # References
 
 * [PWA Starter Kit](https://github.com/Polymer/pwa-starter-kit)
