@@ -32,7 +32,7 @@ var stretchCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "Unused arguments provided after stretch command\n")
 			os.Exit(1)
 		}
-		return client.Stretch()
+		return server.Stretch()
 	},
 }
 

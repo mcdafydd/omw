@@ -1,14 +1,19 @@
 {
   "entrypoint": "index.html",
-  "shell": "",
+  "shell": "src/components/time-tracker.js",
   "sources": [
-    "images/**/*"
+    "images/**/*",
+    "index.html",
+    "package.json",
+    "src/**/*"
   ],
   "extraDependencies": [
     "manifest.json",
-    "node_modules/@webcomponents/webcomponentsjs/*.js",
+    "node_modules/@webcomponents/webcomponentsjs/**",
     "!node_modules/@webcomponents/webcomponentsjs/gulpfile.js",
-    "node_modules/@webcomponents/webcomponentsjs/bundles/*.js"
+    "node_modules/@webcomponents/webcomponentsjs/bundles/*.js",
+    "node_modules/ag-grid-community/**",
+    "push-manifest.json"
   ],
   "builds": [
     {
@@ -65,6 +70,7 @@
     }
   ],
   "moduleResolution": "node",
+  "componentDir": "node_modules/",
   "npm": true,
   "lint": {
     "rules": [

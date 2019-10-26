@@ -24,7 +24,7 @@ var editCmd = &cobra.Command{
 	Short: "Edit your current timesheet",
 	Long:  `Opens a new window to view/edit your current timesheet using your default editor.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		return client.Edit()
+		return server.Edit()
 	},
 }
 

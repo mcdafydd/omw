@@ -36,7 +36,7 @@ const (
 	DefaultFile = "omw.log"
 )
 
-var client *backend.Backend
+var server *backend.Backend
 
 // MousetrapHelpText Set MousetrapHelpText to an empty string to disable Cobra's
 // automatic display of a warning to Windows users who double-click the binary
@@ -64,14 +64,15 @@ var rootCmd = &cobra.Command{
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		if len(args) == 0 {
+		/*if len(args) == 0 {
 			cmd.Help()
 			os.Exit(0)
-		}
-		return err
+		}*/
+		return serverCmd.RunE(cmd, args)
+		//return err
 	},
 	PersistentPostRunE: func(cmd *cobra.Command, args []string) (err error) {
-		return client.Close()
+		return server.Close()
 	},
 }
 
@@ -109,7 +110,7 @@ func init() {
 		fp.Close()
 	}
 
-	client = backend.Create(nil, omwDir, omwFile)
+	server = backend.Create(nil, omwDir, omwFile)
 
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,

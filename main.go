@@ -1,4 +1,4 @@
-//go:generate go run -tags generate gen.go
+//go:generate statik -src=./www/build/es5-bundled
 
 package main
 

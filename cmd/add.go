@@ -39,7 +39,7 @@ var addCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "Missing task after add command!\n")
 			os.Exit(1)
 		}
-		client.Add(args)
+		server.Add(args)
 		return nil
 	},
 }

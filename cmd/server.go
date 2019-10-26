@@ -15,11 +15,26 @@
 package cmd
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"io"
+	"log"
+	"net/http"
 	"os"
+	"os/signal"
+	"time"
 
+	"github.com/gorilla/mux"
+	_ "github.com/mcdafydd/omw/statik"
+	"github.com/rakyll/statik/fs"
 	"github.com/spf13/cobra"
 )
+
+// Body holds data sent by a web client
+type Body struct {
+	Args []string `json:"args"`
+}
 
 // serverCmd represents the server command
 var serverCmd = &cobra.Command{
@@ -37,7 +52,7 @@ var serverCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "Unused arguments provided after server command\n")
 			os.Exit(1)
 		}
-		return client.Run(args)
+		return Run(args)
 	},
 }
 
@@ -53,4 +68,87 @@ func init() {
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
 	// serverCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+}
+
+// Run starts the HTTP server
+func Run(args []string) error {
+	sigc := make(chan os.Signal)
+	signal.Notify(sigc, os.Interrupt)
+
+	statikFS, err := fs.New()
+	if err != nil {
+		return err
+	}
+
+	r := mux.NewRouter()
+	r.HandleFunc("/omw/{command}", OmwHandler).Methods("GET", "POST")
+	r.PathPrefix("/").Handler(http.FileServer(statikFS))
+
+	port := os.Getenv("OMW_PORT")
+	if port == "" {
+		port = "31337"
+	}
+	srv := &http.Server{
+		Handler:      r,
+		Addr:         fmt.Sprintf("127.0.0.1:%s", port),
+		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  15 * time.Second,
+	}
+
+	go func() {
+		log.Println(fmt.Sprintf("Listening on http://%s", srv.Addr))
+		log.Fatal(srv.ListenAndServe())
+	}()
+
+	<-sigc
+
+	log.Println("\nShutting down the server...")
+
+	srv.Shutdown(context.Background())
+
+	return nil
+}
+
+// OmwHandler executes the request and decodes the body
+func OmwHandler(w http.ResponseWriter, r *http.Request) {
+	body := Body{}
+	vars := mux.Vars(r)
+	decErr := json.NewDecoder(r.Body).Decode(&body)
+	if decErr == io.EOF {
+		decErr = nil // ignore EOF errors caused by empty response body
+	}
+
+	log.Println("Command: %v", vars["command"])
+	log.Println("Body", r.Body)
+	switch vars["command"] {
+	case "add", "a":
+		server.Add(body.Args)
+	case "break", "b":
+		server.Add([]string{"break", "**"})
+	case "edit", "e":
+		server.Edit()
+	case "ignore", "i":
+		server.Add([]string{"ignore", "***"})
+	case "hello", "h":
+		server.Hello()
+	case "report", "r":
+		w.Header().Set("Content-Type", "application/json")
+		if len(body.Args) != 3 {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		output, err := server.Report(body.Args[0], body.Args[1], body.Args[2])
+		if err != nil {
+			io.WriteString(w, err.Error())
+		} else {
+			io.WriteString(w, output)
+		}
+	case "stretch", "s":
+		server.Stretch()
+	default:
+		w.WriteHeader(http.StatusBadRequest)
+		return
+	}
+	w.WriteHeader(http.StatusOK)
+	return
 }

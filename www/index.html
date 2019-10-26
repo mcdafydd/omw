@@ -12,7 +12,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title>OutOfMyWay Time Tracker</title>
+    <title>Omw - Out of My Way Time Tracker</title>
 
     <meta name="generator" content="PWA Starter Kit">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -28,11 +28,11 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     <!-- See https://goo.gl/OOhYW5 -->
     <link rel="manifest" href="manifest.json">
 
-    <!-- See https://goo.gl/qRE0vM 
+    <!-- See https://goo.gl/qRE0vM
     <meta name="theme-color" content="#3f51b5"> -->
 
     <link rel="shortcut icon" href="">
-    <link rel="stylesheet" type="text/css" href="/styles.css" />
+    <link rel="stylesheet" type="text/css" href="/src/components/styles.css" />
 
     <!--
       The `<base>` tag below is present to support two advanced deployment options:
@@ -43,6 +43,8 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     -->
     <base href="/">
 
+    <!-- Performance tip: hint to the browser to start the handshake for the fonts site -->
+    <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
     <script>
       // Load and register pre-caching Service Worker
       if ('serviceWorker' in navigator) {
@@ -52,8 +54,11 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
           });
         });
       }
-    </script>
 
+      // Redux assumes `process.env.NODE_ENV` exists in the ES module build.
+      // https://github.com/reactjs/redux/issues/2907
+      window.process = { env: { NODE_ENV: 'production' } };
+    </script>
   </head>
   <body onload=start()>
     <div id="header">
@@ -63,10 +68,11 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         <x-time-tracker></x-time-tracker>
       </div>
     </div>
-    <script type="module" src="./time-tracker.js"></script>
+    <script type="module" src="/src/components/time-tracker.js"></script>
 
     <!-- Load webcomponents-loader.js to check and load any polyfills your browser needs -->
     <script src="node_modules/@webcomponents/webcomponentsjs/webcomponents-loader.js"></script>
+    <script src="/node_modules/ag-grid-community/dist/ag-grid-community.min.noStyle.js"></script>
 
   </body>
 </html>

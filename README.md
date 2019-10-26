@@ -1,6 +1,6 @@
 # OutOfMyWay Time Tracker
 
-*** (5/26/19) In active development, it may not work exactly as described ***
+*** (10/26/19) In active development, it may not work exactly as described ***
 
 A minimalist time tracker.  The primary purposes of this tool are:
 
@@ -15,6 +15,7 @@ Secondary goals are:
 * Do not require network connectivity to fulfill primary functionality
 * Stay as lightweight as practical
 * (future) Provide an extensible API to the reporting functions
+* (future) Sychronize your timesheet to a backend to allow seamless sharing between devices
 
 This time-tracking tool was inspired by the [Ultimate Time Tracker](https://github.com/larose/utt).  The original version (and this version at the moment) calls `utt` as an external dependency.
 
@@ -24,29 +25,33 @@ Transfering quick tasks from this tool into an external tracking system (ie: Wor
 
 ## For running
 
+* The latest release of Omw
 * A recent version of Chrome
-
-Lorca uses the locally installed version of Chrome with remote debugging protocol to provide the UI.
-
-* Python 2 or 3
-* [Python UTT](https://github.com/larose/utt/)
-
-The Python dependencies will be removed before 1.0.
 
 ### Getting Started
 
-1. Run the program, it should display the main app window in a few seconds.
-2. Enter a command.  If you need help, toggle the slider or enter the command `?`. A successful command should quickly execute its function and then minimize the window.
-3. Hit the global shortcut (`<right shift> + <left shift>`) on your keyboard to bring up the window again throughout the day.
+The program has a command-line and browser interface builtin.
+
+To use the command-line interface, run the program `omw` without any arguments to get help.
+
+To use the browser interface:
+
+1. Run `omw server` and note the URL returned
+2. Browse to the URL
+3. Enter a command.  If you need help, toggle the slider or enter the command `?`. A successful command should quickly execute its function and then minimize the window.
 4. Use the `r` and `l` commands to generate reports that you can use to capture time in an external tool.
+
+Optionally:
+** NOTE this function is not yet released **
+
+1. If you want to add support for global hotkeys to Omw, install the Chrome app omw-hotkeys
+2. After setting your preferred default action key combo, press it, and the Omw browser interface should appear
 
 ## For developing
 
 * NodeJS v11.14.0+
 * Polymer-cli (installed with `npm install`)
 * Go 1.11+
-* [Robotgo dependencies](https://github.com/go-vgo/robotgo#requirements)
-    * Ubuntu 19.04 seems to also need `apt install libxkbcommon-x11-dev`
 
 ### Building
 
@@ -70,11 +75,13 @@ go run mage.go buildpkg
 
 # Architecture
 
-This tool is being rewritten using Go, [Lorca](https://github.com/zserge/lorca), and [LitElement](https://lit-element.polymer-project.org/).
+Omw is a simple, stateless, time tracker application, in that there is never a running clock in the background.  It only adds a task with the current timestamp to a text file log, and then compares adjacent timestamps to generate reports.  The timesheet is written line-by-line and stored in the default home directory as returned by `go-homedir` under `.local/share/omw/omw.log`.
 
-The keyboard shortcut, a critical part of the tool to keep you "in flow", is provided by [RobotGo Hook](https://github.com/robotn/gohook/), which also relies on [cgo](https://golang.org/cmd/cgo/).  The global keyboard shortcut is the primary reason for developing the application with Lorca and Go, instead of as a pure Progressive Web App.  Chrome provides the ability to register global keyboard shortcuts with the Chrome Extensions [Commands API](https://developer.chrome.com/extensions/commands), but I find this design nice to work with for the time being, and it makes working with the local filesystem a piece of cake.  Google announce support for Desktop PWAs starting in Chrome 73 and that [shortcuts would be added soon](https://developers.google.com/web/progressive-web-apps/desktop#whats_next).  Because the UI is written with PWA in mind, it should be relatively easy to take advantage of this in the future if it seems like a good choice.
+The binary provides a command-line interface as well as an embedded web application, using the `statik` package, accessible via a Go HTTP server providing a REST-ish API.  An flock() package provides an interface to operating system file locking.
 
-For now, Go and Lorca provide the "server", interfacing with the host operating system and controlling the instance of Chrome using its remote debugging protocol.  [LitElement](https://lit-element.polymer-project.org/) provides the user interface.  Lorca provides a way for Go to execute Javascript inside the instance of Chrome, and also expose functions in Javascript that Chrome can execute to access functions on the OS.
+I chose to leverage Chrome to provide cross-platform global (always available) keyboard shortcuts, which proved difficult to do elegantly across Windows, Linux, and MacOS, using only Go dependencies. The global shortcuts are the critical component of the tool to keep you "in flow".  Chrome provides the ability to register global keyboard shortcuts with the Chrome Extensions [Commands API](https://developer.chrome.com/extensions/commands). 
+
+A [LitElement](https://lit-element.polymer-project.org/) web application provides the browser interface.
 
 # Building
 
@@ -88,3 +95,6 @@ The original version was written with Python and [Remi](https://github.com/dddom
 
 * [PWA Starter Kit](https://github.com/Polymer/pwa-starter-kit)
 * [WiredJS Web Components](https://wiredjs.com)
+* [Ultimate Time Tracker](https://github.com/larose/utt)
+* [go-homedir](https://github.com/mitchellh/go-homedir)
+* [statik](https://github.com/rakyll/statik)

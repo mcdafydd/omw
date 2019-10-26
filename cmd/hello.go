@@ -35,7 +35,7 @@ var helloCmd = &cobra.Command{
 			fmt.Fprintf(os.Stderr, "Unused arguments provided after hello command\n")
 			os.Exit(1)
 		}
-		client.Hello()
+		server.Hello()
 	},
 }
 

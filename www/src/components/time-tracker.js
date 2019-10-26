@@ -6,7 +6,7 @@ import {WiredInput} from 'wired-input';
 import {WiredListbox} from 'wired-listbox';
 import {WiredToggle} from 'wired-toggle';
 
-import {JsonEditor} from './json-editor';
+import './grid.js';
 
 // Create a class definition for your component and extend the LitElement base class
 class TimeTracker extends LitElement {
@@ -15,8 +15,7 @@ class TimeTracker extends LitElement {
       showHelp: { type: Boolean },
       showReport: { type: Boolean },
       outputClass: { type: String },
-      outputText: { type: String },
-      reportData: { type: String }
+      outputText: { type: String }
     };
   }
 
@@ -46,7 +45,7 @@ class TimeTracker extends LitElement {
     this.showReport = false;
     this.outputClass = 'black'; // should be a CSS :host class selector
     this.outputText = '';
-    this.reportData = '{}';
+    this.reportData = {};
   }
 
   // The render callback renders your element's template. This should be a pure function,
@@ -65,11 +64,18 @@ class TimeTracker extends LitElement {
         <wired-toggle id="reportme" class="toggle" @change="${this.toggleReport}" ?checked=${this.showReport}></wired-toggle>
       </div>
       <div class="${this.outputClass}">${this.outputText}</div>
-      <x-json-editor data="${this.reportData}" ?hidden=${!this.showReport}></x-json-editor>
+
+      <link rel="stylesheet" href="../../node_modules/ag-grid-community/dist/styles/ag-grid.css">
+      <link rel="stylesheet" href="../../node_modules/ag-grid-community/dist/styles/ag-theme-balham-dark.css">
+
+      <div style="width: 800px;">
+          <h1>Simple ag-Grid Polymer 3 Example</h1>
+          <x-grid style="width: 100%; height: 350px;"
+                  ?hidden=${!this.showReport}
+          ></x-grid>
       <div id="helpText" ?hidden=${!this.showHelp}>${this.getHelpText()}</div>
     `;
   }
-
   toggleHelp() {
     this.showHelp = !this.showHelp;
   }
@@ -89,57 +95,64 @@ class TimeTracker extends LitElement {
     var cmd = argv.shift();
     switch(cmd) {
       case 'h':
-        OmwHello();
-        minimize();
+      case 's':
+      case 'b':
+      case 'i':
+        this.doCommand(cmd, argv, 'POST');
+        break;
+      case 'e':
+        this.doCommand(cmd, argv, 'GET');
         break;
       case 'a':
         if (argv.length > 0) {
-          OmwAdd(argv);
-          minimize();  
+          this.doCommand(cmd, argv, 'POST');
         }
         else {
           this.updateOutput('Add command requires task description', 'red');
         }
         break;
       case 'r':
-        OmwReport('2019-05-27', '2019-06-03', 'json').then((report, err) => {
-          if (err) {
-            this.showReport = false;
-            this.updateOutput(err, 'red');
-            console.error('OmwReport', err)
-          }
-          else {
-            this.showReport = true;
-            this.reportData = report;
-          }
-        });
-        minimize();
-        break;
-      case 's':
-        OmwStretch();
-        minimize();
+        d = new Date();
+        var day = d.getDay();
+        var monday = d.getDate() - day + (day == 0 ? -6:1); // adjust when day is sunday
+        start = this.dateStr(d.setDate(monday));
+        d2 = new Date();
+        var day2 = d2.getDay();
+        var friday = d2.getDate() - day2 + (day2 == 0 ? -6:1) + 4; // adjust when day is sunday
+        end = this.dateStr(friday);
+        argv = [start, end, 'json'];
+        report, err = this.doCommand(cmd, argv, 'GET');
+        if (err) {
+          this.showReport = false;
+          this.updateOutput(err, 'red');
+          console.error('Report', err)
+        }
+        else {
+          this.showReport = true;
+          this.reportData = report;
+        }
         break;
       case 'l':
-        OmwReport('2019-05-21', '2019-05-26', 'json').then((report) => {
-          if (err) {
-            this.showReport = false;
-            this.updateOutput(err, 'red');
-            console.error('OmwReport', err)
-          }
-          else {
-            this.showReport = true;
-            this.reportData = report;
-          }
-        })
-        minimize();
-        break;
-      case 'e':
-        OmwEdit();
-        minimize();
-        break;
-      case 'b':
-        OmwAdd(['break', '**']);
-        minimize();
+        d = new Date();
+        var day = d.getDay();
+        var lastMonday = d.getDate() - day + (day == 0 ? -6:1) - 7; // adjust when day is sunday
+        start = this.dateStr(d.setDate(lastMonday));
+        d2 = new Date();
+        var day2 = d2.getDay(),
+        lastFriday = d2.getDate() - day2 + (day2 == 0 ? -6:1) -3; // adjust when day is sunday
+        lastFriday = lastFriday - 7;
+        end = this.dateStr(lastFriday);
+        argv = [start, end, 'json'];
+        report, err = this.doCommand(cmd, argv, 'GET');
+        if (err) {
+          this.showReport = false;
+          this.updateOutput(err, 'red');
+          console.error('Report', err)
+        }
+        else {
+          this.showReport = true;
+          this.reportData = report;
+        }
         break;
       case '?':
         this.showReport = false;
@@ -150,22 +163,43 @@ class TimeTracker extends LitElement {
     }
   }
 
+  dateStr(d) {
+    return d.getFullYear() + '-' +
+    ('0'+ (d.getMonth()+1)).slice(-2) + '-' +
+    ('0'+ d.getDate()).slice(-2);
+  }
+
   // handleInput process user input, ensure the text entered is valid
   handleInput(e) {
     if (e.key === 'Enter') {
       // Cancel the default action, if needed
       e.preventDefault();
       var el = this.shadowRoot.getElementById('text-input');
-      var cmd = el.value.match(/([a-zA-Z0-9,._+:@%/-?]*) ?(\*\*\*?)*/);    
+      var cmd = el.value.match(/([a-zA-Z0-9,._+:@%/-?]*) ?(\*\*\*?)*/);
       if (cmd === null) {
         this.updateOutput('Invalid command - try again or ? for help', 'red');
         el.value = '';
       }
       else {
         this.updateOutput('', 'black');
-        this.handleCommand(el, cmd[0]);  
+        this.handleCommand(el, cmd[0]);
       }
     }
+  }
+
+  async doCommand(cmd, argv, method) {
+    await fetch('http://localhost:31337/omw/'.concat(cmd), {
+      method: method,
+      headers: {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({args: argv})
+    }).then(function (response) {
+		  return response.json();
+	  }).then(function (data) {
+  		console.log(data);
+	  });
   }
 
   updateOutput(data, color) {
@@ -178,8 +212,8 @@ class TimeTracker extends LitElement {
         <wired-listbox>
         <wired-item value="cmdHello">h (hello) - start day</wired-item>
         <wired-item value="cmdAdd">a (add) &lt;task&gt; - add &lt;task&gt; entry with current time (use at end of task, not beginning)</wired-item>
-        <wired-item value="cmdAddBreak">a (add) &lt;task&gt; ** - add break &lt;task&gt; entry with current time (ie: a break ***) (use at end of task, not beginning)</wired-item>
-        <wired-item value="cmdAddIgnore">a (add) &lt;task&gt;*** - add ignored &lt;task&gt; entry with current time (ie: a commuting ***) (use at end of task, not beginning)</wired-item>
+        <wired-item value="cmdAddBreak">b (break) &lt;task&gt; ** - add break &lt;task&gt; entry with current time (ie: a break ***) (use at end of task, not beginning)</wired-item>
+        <wired-item value="cmdAddIgnore">i (igore) &lt;task&gt;*** - add ignored &lt;task&gt; entry with current time (ie: a commuting ***) (use at end of task, not beginning)</wired-item>
         <wired-item value="cmdReport">r (report) &lt;task&gt;*** - display this week\'s time report')</wired-item>
         <wired-item value="cmdLast">l (last) - display last week\'s time report</wired-item>
         <wired-item value="cmdStretch">s (stretch) &lt;task&gt;*** - stretch last task to current time')</wired-item>
@@ -187,6 +221,13 @@ class TimeTracker extends LitElement {
         <wired-item value="cmdBreak">b (break) - shortcut to add break **</wired-item>
         <wired-item value="cmdToggle">? (help) - toggle this help text display</wired-item>`
   }
+
+  updated(changedProperties) {
+    changedProperties.forEach((oldValue, propName) => {
+    });
+    console.dir(changedProperties);
+  }
+
 }
 
 // Register your element to custom elements registry, pass it a tag name and your class definition

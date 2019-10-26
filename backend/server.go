@@ -1,5 +1,3 @@
-//go:generate go run -tags generate gen.go
-
 package backend
 
 import (
@@ -7,23 +5,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"log"
-	"net"
-	"net/http"
 	"os"
 	"os/exec"
-	"os/signal"
 	"regexp"
 	"runtime"
 	"strings"
-	"sync"
 	"text/template"
 	"time"
 
+	"github.com/gofrs/flock"
 	"github.com/pkg/errors"
-	hook "github.com/robotn/gohook"
-	"github.com/zserge/lorca"
 )
 
 type formatType int
@@ -100,25 +92,14 @@ type config struct {
 	omwFile string
 }
 
-// Go types that are bound to the Lorca UI must be thread-safe, because each
-// binding is executed in its own goroutine. In this simple case we may use
-// atomic operations, but for more complex cases one should use proper
-// synchronization.
 type worker struct {
-	sync.Mutex
 	cmd            string
-	bounds         *lorca.Bounds
-	ui             lorca.UI
 	leftShiftDown  bool
 	rightShiftDown bool
 }
 
 // Add appends the current time and task to your timesheet
 func (b *Backend) Add(args []string) {
-	if b.worker != nil {
-		b.worker.Lock()
-		defer b.worker.Unlock()
-	}
 	task := strings.Join(args, " ")
 	b.addEntry(task)
 	return
@@ -126,65 +107,47 @@ func (b *Backend) Add(args []string) {
 
 // Close cleans up before exiting
 func (b *Backend) Close() (err error) {
-	if b.worker != nil {
-		b.worker.Lock()
-		defer b.worker.Unlock()
-	}
 	if b.fp != nil {
-		err = b.fp.Close()
+		b.fp.Close()
 	}
-	return err
+	return nil
 }
 
 // Edit opens your current timesheet in your default editor or
 // in the editor specified by the EDITOR environment variable
-func (b *Backend) Edit() error {
-	if b.worker != nil {
-		b.worker.Lock()
-		defer b.worker.Unlock()
+func (b *Backend) Edit() (err error) {
+	fileLock := flock.New(b.config.omwFile)
+	locked, err := fileLock.TryLock()
+	defer fileLock.Unlock()
+	if err != nil {
+		// handle locking error
 	}
-	editor := DefaultEditor
-	if preferred := os.Getenv("EDITOR"); preferred != "" {
-		editor = preferred
+	if locked {
+		editor := DefaultEditor
+		if preferred := os.Getenv("EDITOR"); preferred != "" {
+			editor = preferred
+		}
+		if term := os.Getenv("TERM"); runtime.GOOS != "windows" && term != "" {
+			editor = fmt.Sprintf("%s -e %s", term, editor)
+		}
+		argv := []string{b.config.omwFile}
+		cmd := exec.CommandContext(b.ctx, editor, argv...)
+		// should work if run from terminal
+		cmd.Stdin = os.Stdin
+		cmd.Stdout = os.Stdout
+		err = runCommand(cmd)
 	}
-	argv := []string{b.config.omwFile}
-	cmd := exec.CommandContext(b.ctx, editor, argv...)
-	// should work if run from terminal
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	return runCommand(cmd)
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // Hello appends a newline and then another line to end of timesheet with current time
 // and the word "Hello".  Meant to be run at the beginning of a new work day
 func (b *Backend) Hello() {
-	if b.worker != nil {
-		b.worker.Lock()
-		defer b.worker.Unlock()
-	}
-	b.fp.WriteString("\n")
 	b.addEntry("hello")
 	return
-}
-
-// Minimize Hides the application window
-// Saves the current window lorca.Bounds
-func (c *worker) Minimize() {
-	c.Lock()
-	defer c.Unlock()
-	bounds, err := c.ui.Bounds()
-	if err != nil {
-		log.Println("[ERROR] Minimize.Bounds(): ", err)
-		return
-	}
-	c.bounds = &bounds
-
-	c.bounds.WindowState = lorca.WindowStateMinimized
-	err = c.ui.SetBounds(*c.bounds)
-	if err != nil {
-		log.Println("[ERROR] Minimize.SetBounds(): ", err)
-		return
-	}
 }
 
 // Report outputs various report formats to specified type (for now - just text)
@@ -194,11 +157,7 @@ func (c *worker) Minimize() {
 // and "2019-01-03 00:00"
 func (b *Backend) Report(start, end string, format string) (output string, err error) {
 	layout := "2006-1-2" // should support optional leading zeros
-	layoutEvent := "2006-1-2 15:04"
-	if b.worker != nil {
-		b.worker.Lock()
-		defer b.worker.Unlock()
-	}
+	layoutEvent := "2006-1-2 15:4"
 	report := Report{}
 	report.From, err = time.Parse(layout, start)
 	if err != nil {
@@ -210,6 +169,7 @@ func (b *Backend) Report(start, end string, format string) (output string, err e
 	}
 	report.To = report.To.Add(24 * time.Hour)
 	r, err := os.Open(b.config.omwFile)
+	defer r.Close()
 	if err != nil {
 		return "", err
 	}
@@ -274,132 +234,68 @@ func (b *Backend) Report(start, end string, format string) (output string, err e
 	}
 	b.lastReport = &report
 	output, err = b.formatReport(report, formatType(f))
-	return output, err
-}
-
-// Restore Restores previous visible window state after Minimize()
-func (c *worker) Restore() {
-	c.Lock()
-	defer c.Unlock()
-	bounds, err := c.ui.Bounds()
 	if err != nil {
-		log.Println("[ERROR] Minimize.Bounds(): ", err)
-		return
+		return "", err
 	}
-	c.bounds = &bounds
-
-	c.bounds.WindowState = lorca.WindowStateNormal
-	err = c.ui.SetBounds(*c.bounds)
-	if err != nil {
-		log.Println("[ERROR] Restore.SetBounds() WindowStateNormal: ", err)
-		return
-	}
-}
-
-// Run does the following:
-// 1. Creates the Lorca object
-// 2. Loads the Chrome interface and HTML/JS content
-// 3. Starts the hotkey listener
-func (b *Backend) Run(args []string) error {
-	if runtime.GOOS == "linux" {
-		args = append(args, "--class=Lorca")
-	}
-
-	ui, err := lorca.New("", "", 480, 200, args...)
-	if err != nil {
-		log.Fatal(err)
-	}
-	b.worker = &worker{ui: ui, cmd: ""}
-	defer b.worker.ui.Close()
-
-	// A simple way to know when UI is ready (uses body.onload event in JS)
-	b.worker.ui.Bind("start", func() {
-		log.Println("UI is ready")
-	})
-
-	// Bind functions to Lorca, exposing our Go functions to javascript
-	b.worker.ui.Bind("OmwAdd", b.Add)
-	b.worker.ui.Bind("OmwEdit", b.Edit)
-	b.worker.ui.Bind("OmwHello", b.Hello)
-	b.worker.ui.Bind("OmwReport", b.Report)
-	b.worker.ui.Bind("OmwStretch", b.Stretch)
-	b.worker.ui.Bind("minimize", b.worker.Minimize)
-	b.worker.ui.Bind("restore", b.worker.Restore)
-
-	// Load HTML.
-	// You may also use `data:text/html,<base64>` approach to load initial HTML,
-	// e.g: b.worker.ui.Load("data:text/html," + url.PathEscape(html))
-
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer ln.Close()
-	go http.Serve(ln, http.FileServer(FS))
-	b.worker.ui.Load(fmt.Sprintf("http://%s", ln.Addr()))
-	// You may use console.log to debug your JS code, it will be printed via
-	// log.Println(). Also exceptions are printed in a similar manner.
-	/*b.worker.ui.Eval(`
-		console.log('Multiple values:', [1, false, {"x":5}]);
-	`)*/
-
-	// Wait until the interrupt signal arrives or browser window is closed
-	sigc := make(chan os.Signal)
-	signal.Notify(sigc, os.Interrupt)
-
-	// start hook
-	hotkey := hook.Start()
-	// end hook
-	defer hook.End()
-
-	eventLoop(b.worker, &sigc, &hotkey)
-
-	return nil
+	return output, nil
 }
 
 // Stretch append current timestamp to end of timesheet and copy previous task
 // fp is opened in append mode, so seek to beginning of file first
 func (b *Backend) Stretch() error {
-	if b.worker != nil {
-		b.worker.Lock()
-		defer b.worker.Unlock()
-	}
-	buf, err := ioutil.ReadFile(b.config.omwFile)
-	if err != nil {
-		errors.Wrapf(err, "Error reading %s", b.config.omwFile)
-		return err
-	}
-	_, lastLine, err := bufio.ScanLines(buf, false)
+	r, err := os.Open(b.config.omwFile)
+	defer r.Close()
 	if err != nil {
 		return err
 	}
-	if len(lastLine) <= 2 {
+	scanner := bufio.NewScanner(r)
+	scanner.Split(bufio.ScanLines)
+	lastEntry := []string{}
+	// Brute force retrieval of last line in timesheet
+	for scanner.Scan() {
+		lastEntry = strings.Fields(scanner.Text())
+	}
+	if len(lastEntry) <= 2 {
 		return errors.New("Missing task description for stretch")
 	}
-	lastEntry := strings.Fields(string(lastLine))[2:]
-	return b.addEntry(strings.Join(lastEntry, " "))
+	err = b.addEntry(strings.Join(lastEntry[2:], " "))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 // addEntry seeks to end of file and appends a formatted string
 // will create a new empty file if file is missing
-func (b *Backend) addEntry(s string) error {
+func (b *Backend) addEntry(s string) (err error) {
 	fp, err := os.OpenFile(b.config.omwFile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
+	defer fp.Close()
 	if err != nil {
 		errors.Wrapf(err, "Can't open or create %s", b.config.omwFile)
 		return err
 	}
 	ts := time.Now()
-	tsFmt := fmt.Sprintf("%d-%d-%d %d:%d",
+	tsFmt := fmt.Sprintf("%d-%02d-%02d %02d:%02d",
 		ts.Year(),
 		ts.Month(),
 		ts.Day(),
 		ts.Hour(),
 		ts.Minute(),
 	)
-	entry := fmt.Sprintf("%s\t%s\n", tsFmt, s)
-	fp.WriteString(entry)
-	fp.Close()
-	return err
+	entry := fmt.Sprintf("%s  %s\n", tsFmt, s)
+	if s == "hello" {
+		entry = fmt.Sprintf("\n%s", entry)
+	}
+	fileLock := flock.New(b.config.omwFile)
+	locked, err := fileLock.TryLock()
+	defer fileLock.Unlock()
+	if err != nil {
+		// handle locking error
+	}
+	if locked {
+		fp.WriteString(entry)
+	}
+	return nil
 }
 
 func (b *Backend) formatReport(report Report, format formatType) (string, error) {
@@ -437,7 +333,7 @@ func (b *Backend) parseEntry(s string) (*Entry, error) {
 	return entry, nil
 }
 
-// Create an instance of the structures that operate on OMW data
+// Create an instance of the structures that operate on Omw data
 func Create(fp *os.File, omwDir, omwFile string) *Backend {
 	return &Backend{
 		ctx: context.Background(),
@@ -447,40 +343,6 @@ func Create(fp *os.File, omwDir, omwFile string) *Backend {
 		},
 		fp:     fp,
 		worker: nil,
-	}
-}
-
-// eventLoop is the main loop that handles global hotkey events
-func eventLoop(c *worker, sigc *chan os.Signal, hotkey *chan hook.Event) {
-	// main event loop
-	keepLooping := true
-	for keepLooping {
-		select {
-		case <-*sigc:
-			keepLooping = false
-			break
-		case <-c.ui.Done():
-			keepLooping = false
-			break
-		case ev := <-*hotkey:
-			if ev.Rawcode == 65505 && ev.Kind == hook.KeyDown {
-				fmt.Printf("Got left shift down = %#v\n", ev)
-				c.leftShiftDown = true
-			}
-			if ev.Rawcode == 65506 && ev.Kind == hook.KeyDown {
-				c.rightShiftDown = true
-			}
-			if ev.Rawcode == 65505 && ev.Kind == hook.KeyUp {
-				c.leftShiftDown = false
-			}
-			if ev.Rawcode == 65506 && ev.Kind == hook.KeyUp {
-				c.rightShiftDown = false
-			}
-			if c.leftShiftDown && c.rightShiftDown {
-				log.Println("Got hotkey - restoring command window")
-				c.Restore()
-			}
-		}
 	}
 }
 
