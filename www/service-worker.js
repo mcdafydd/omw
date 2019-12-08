@@ -1,11 +1,25 @@
-/**
- * @license
- * Copyright (c) 2016 The Polymer Project Authors. All rights reserved.
- * This code may only be used under the BSD style license found at http://polymer.github.io/LICENSE.txt
- * The complete set of authors may be found at http://polymer.github.io/AUTHORS.txt
- * The complete set of contributors may be found at http://polymer.github.io/CONTRIBUTORS.txt
- * Code distributed by Google as part of the polymer project is also
- * subject to an additional IP rights grant found at http://polymer.github.io/PATENTS.txt
- */
+importScripts("https://storage.googleapis.com/workbox-cdn/releases/4.3.1/workbox-sw.js");
 
-console.info('Service worker disabled for development, will be generated at build time.');
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SKIP_WAITING') {
+    self.skipWaiting();
+  }
+});
+
+workbox.precaching.precacheAndRoute([]);
+
+workbox.routing.registerNavigationRoute(
+  // look up its corresponding cache key for /view1
+  workbox.precaching.getCacheKeyForURL('/app')
+);
+
+workbox.routing.registerNavigationRoute(
+  // look up its corresponding cache key for /view1
+  workbox.precaching.getCacheKeyForURL('/edit')
+);
+
+workbox.routing.registerNavigationRoute(
+  // look up its corresponding cache key for /view1
+  workbox.precaching.getCacheKeyForURL('/report')
+);
+

@@ -24,7 +24,6 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     <link rel="mask-icon" href="/images/safari-pinned-tab.svg" color="#5bbad5">
     <meta name="msapplication-TileColor" content="#00aba9">
     <meta name="theme-color" content="#ffffff">
-
     <!-- See https://goo.gl/OOhYW5 -->
     <link rel="manifest" href="manifest.json">
 
@@ -55,24 +54,20 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         });
       }
 
-      // Redux assumes `process.env.NODE_ENV` exists in the ES module build.
-      // https://github.com/reactjs/redux/issues/2907
-      window.process = { env: { NODE_ENV: 'production' } };
+      const node_env = 'NODE_ENVIRONMENT' === 'production' ? 'production' : 'development';
+      window.process = { env: { NODE_ENV: node_env } };
     </script>
   </head>
-  <body onload=start()>
+  <body>
     <div id="header">
       <div class="app">
-        <div><strong style="font-size:0.68em;color:red;">To open: LEFT_SHIFT + RIGHT_SHIFT</strong></div>
+        <div><strong style="font-size:0.68em;color:red;">To open: CTRL+SHIFT+4</strong></div>
         <strong>Enter command:</strong>
-        <x-time-tracker></x-time-tracker>
+        <omw-app></omw-app>
+	<script type="module" src="./src/components/omw-app.js"></script>
       </div>
     </div>
-    <script type="module" src="/src/components/time-tracker.js"></script>
-
     <!-- Load webcomponents-loader.js to check and load any polyfills your browser needs -->
     <script src="node_modules/@webcomponents/webcomponentsjs/webcomponents-loader.js"></script>
-    <script src="/node_modules/ag-grid-community/dist/ag-grid-community.min.noStyle.js"></script>
-
   </body>
 </html>
