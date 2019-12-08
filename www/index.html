@@ -45,17 +45,11 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     <!-- Performance tip: hint to the browser to start the handshake for the fonts site -->
     <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
     <script>
-      // Load and register pre-caching Service Worker
-      if ('serviceWorker' in navigator) {
-        window.addEventListener('load', function() {
-          navigator.serviceWorker.register('service-worker.js', {
-            scope: '/',
-          });
-        });
-      }
-
-      const node_env = 'NODE_ENVIRONMENT' === 'production' ? 'production' : 'development';
-      window.process = { env: { NODE_ENV: node_env } };
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js');
+      });
+    }
     </script>
   </head>
   <body>
