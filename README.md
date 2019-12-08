@@ -90,7 +90,6 @@ Planning to move this into [Mage](https://github.com/magefile/mage) to handle th
 # References
 
 * [PWA Starter Kit](https://github.com/Polymer/pwa-starter-kit)
-* [WiredJS Web Components](https://wiredjs.com)
 * [Ultimate Time Tracker](https://github.com/larose/utt)
 * [go-homedir](https://github.com/mitchellh/go-homedir)
 * [statik](https://github.com/rakyll/statik)

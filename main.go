@@ -1,4 +1,4 @@
-//go:generate statik -src=./www/build/es5-bundled
+//go:generate statik -src=./www/dist
 
 package main
 

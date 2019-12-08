@@ -94,7 +94,6 @@ func Run(args []string) error {
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
-
 	go func() {
 		log.Println(fmt.Sprintf("Listening on http://%s", srv.Addr))
 		log.Fatal(srv.ListenAndServe())
@@ -107,6 +106,14 @@ func Run(args []string) error {
 	srv.Shutdown(context.Background())
 
 	return nil
+}
+
+func setCorbHeaderMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		// Call the next handler, which can be another middleware in the chain, or the final handler.
+		next.ServeHTTP(w, r)
+	})
 }
 
 // OmwHandler executes the request and decodes the body
