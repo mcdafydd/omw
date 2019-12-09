@@ -120,14 +120,14 @@ func (b *Backend) Edit() (err error) {
 	locked, err := fileLock.TryLock()
 	defer fileLock.Unlock()
 	if err != nil {
-		// handle locking error
+		return err
 	}
 	if locked {
 		editor := DefaultEditor
 		if preferred := os.Getenv("EDITOR"); preferred != "" {
 			editor = preferred
 		}
-		if term := os.Getenv("TERM"); runtime.GOOS != "windows" && term != "" {
+		if term := os.Getenv("OMW_TERM"); runtime.GOOS != "windows" && term != "" {
 			editor = fmt.Sprintf("%s -e %s", term, editor)
 		}
 		argv := []string{b.config.omwFile}
@@ -135,12 +135,9 @@ func (b *Backend) Edit() (err error) {
 		// should work if run from terminal
 		cmd.Stdin = os.Stdin
 		cmd.Stdout = os.Stdout
-		err = runCommand(cmd)
+		return runCommand(cmd)
 	}
-	if err != nil {
-		return err
-	}
-	return nil
+	return errors.New("Unable to get lock on omw.log. Try again.")
 }
 
 // Hello appends a newline and then another line to end of timesheet with current time
@@ -224,7 +221,7 @@ func (b *Backend) Report(start, end string, format string) (output string, err e
 		} else if entry.Ignore == false && entry.Brk == true {
 			report.BrkHrs += entry.Duration
 		} else if entry.Ignore == true && entry.Brk == true {
-			return "", errors.New("Entry has both break and ignore set to true.  Something's wrong")
+			return "", errors.New("Entry has both break and ignore set to true.  Something's wrong.")
 		}
 		report.Entries = append(report.Entries, *entry)
 	}
