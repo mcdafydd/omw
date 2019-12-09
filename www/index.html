@@ -15,7 +15,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     <title>Omw - Out of My Way Time Tracker</title>
 
     <meta name="generator" content="PWA Starter Kit">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="description" content="A minimalist time tracker.">
 
     <link rel="apple-touch-icon" sizes="180x180" href="/images/apple-touch-icon.png">
@@ -31,7 +31,7 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
     <meta name="theme-color" content="#3f51b5"> -->
 
     <link rel="shortcut icon" href="">
-    <link rel="stylesheet" type="text/css" href="/src/components/styles.css" />
+    <link rel="stylesheet" type="text/css" href="/components/styles.css" />
 
     <!--
       The `<base>` tag below is present to support two advanced deployment options:
@@ -44,6 +44,16 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
 
     <!-- Performance tip: hint to the browser to start the handshake for the fonts site -->
     <link rel="preconnect" href="https://fonts.gstatic.com/" crossorigin>
+
+    <style>
+      html, body {
+        margin: 0;
+        padding: 0;
+        font-family: sans-serif;
+        background-color: #ededed;
+      }
+    </style>
+
     <script>
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
@@ -58,10 +68,8 @@ subject to an additional IP rights grant found at http://polymer.github.io/PATEN
         <div><strong style="font-size:0.68em;color:red;">To open: CTRL+SHIFT+4</strong></div>
         <strong>Enter command:</strong>
         <omw-app></omw-app>
-	<script type="module" src="./src/components/omw-app.js"></script>
-      </div>
+	<script type="module" src="./components/omw-app.js"></script>
+1      </div>
     </div>
-    <!-- Load webcomponents-loader.js to check and load any polyfills your browser needs -->
-    <script src="node_modules/@webcomponents/webcomponentsjs/webcomponents-loader.js"></script>
   </body>
 </html>

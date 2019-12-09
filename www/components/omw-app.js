@@ -94,18 +94,18 @@ class OmwApp extends LitElement {
     const cmd = argv.shift();
     switch(cmd) {
       case 'h':
-        omwHello();
+        this.omwHello();
         break;
       case 'a':
         if (argv.length > 0) {
-          omwAdd(argv);
+          this.omwAdd(argv);
         }
         else {
           this.updateOutput('Add command requires task description', 'red');
         }
         break;
       case 'r':
-        omwReport('2019-05-27', '2019-06-03', 'json').then((report, err) => {
+        this.omwReport('2019-05-27', '2019-06-03', 'json').then((report, err) => {
           if (err) {
             this.showReport = false;
             this.updateOutput(err, 'red');
@@ -118,10 +118,10 @@ class OmwApp extends LitElement {
         });
         break;
       case 's':
-        omwStretch();
+        this.omwStretch();
         break;
       case 'l':
-        omwReport('2019-05-21', '2019-05-26', 'json').then((report, err) => {
+        this.omwReport('2019-05-21', '2019-05-26', 'json').then((report, err) => {
           if (err) {
             this.showReport = false;
             this.updateOutput(err, 'red');
@@ -134,10 +134,10 @@ class OmwApp extends LitElement {
         })
         break;
       case 'e':
-        omwEdit();
+        this.omwEdit();
         break;
       case 'b':
-        omwAdd(['break', '**']);
+        this.omwAdd(['break', '**']);
         break;
       case '?':
         this.showReport = false;
@@ -195,7 +195,7 @@ class OmwApp extends LitElement {
   }
 
   omwAdd(argv) {
-    const userAction = async () => {
+    async () => {
       const response = await fetch('http://127.0.0.1:31337/omw/add', {
         method: 'POST',
         body: {"args": argv},
@@ -203,21 +203,21 @@ class OmwApp extends LitElement {
           'Content-Type': 'application/json'
         }
       });
-      console.log(response)
+      console.log(response);
     }
   }
 
   omwEdit() {
-    const userAction = async () => {
+    async () => {
       const response = await fetch('http://127.0.0.1:31337/omw/edit', {
         method: 'GET',
       });
-      console.log(response)
+      console.log(response);
     }
   }
 
   omwHello() {
-    const userAction = async () => {
+    async () => {
       const response = await fetch('http://127.0.0.1:31337/omw/hello', {
         method: 'POST',
         body: {},
@@ -225,21 +225,21 @@ class OmwApp extends LitElement {
           'Content-Type': 'application/json'
         }
       });
-      console.log(response)
+      console.log(response);
     }
   }
 
   omwReport() {
-    const userAction = async () => {
+    async () => {
       const response = await fetch('http://127.0.0.1:31337/omw/report', {
         method: 'GET',
       });
-      console.log(response)
+      console.log(response);
     }
   }
 
   omwStretch() {
-    const userAction = async () => {
+    async () => {
       const response = await fetch('http://127.0.0.1:31337/omw/stretch', {
         method: 'POST',
         body: {},
@@ -247,7 +247,7 @@ class OmwApp extends LitElement {
           'Content-Type': 'application/json'
         }
       });
-      console.log(response)
+      console.log(response);
     }
   }
 }
