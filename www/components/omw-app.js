@@ -93,9 +93,11 @@ class OmwApp extends LitElement {
     const argv = input.split(/\s/);
     const cmd = argv.shift();
     switch(cmd) {
+      case 'hello':
       case 'h':
         this.omwHello();
         break;
+      case 'add':
       case 'a':
         if (argv.length > 0) {
           this.omwAdd(argv);
@@ -104,6 +106,7 @@ class OmwApp extends LitElement {
           this.updateOutput('Add command requires task description', 'red');
         }
         break;
+      case 'report':
       case 'r':
         this.omwReport('2019-05-27', '2019-06-03', 'json').then((report, err) => {
           if (err) {
@@ -117,9 +120,11 @@ class OmwApp extends LitElement {
           }
         });
         break;
+      case 'stretch':
       case 's':
         this.omwStretch();
         break;
+      case 'last':
       case 'l':
         this.omwReport('2019-05-21', '2019-05-26', 'json').then((report, err) => {
           if (err) {
@@ -133,15 +138,19 @@ class OmwApp extends LitElement {
           }
         })
         break;
+      case 'edit':
       case 'e':
         this.omwEdit();
         break;
+      case 'break':
       case 'b':
         this.omwAdd(['break', '**']);
         break;
+      case 'ignore':
       case 'i':
         this.omwAdd(['ignore', '***']);
         break;
+      case 'help':
       case '?':
         this.showReport = false;
         this.toggleHelp();
@@ -157,7 +166,7 @@ class OmwApp extends LitElement {
       // Cancel the default action, if needed
       e.preventDefault();
       const el = this.shadowRoot.getElementById('text-input');
-      const cmd = el.value.match(/([a-zA-Z0-9,._+:@%/-?]*) ?(\*\*\*?)*/);
+      const cmd = el.value.match(/([a-zA-Z0-9,._+:@%\/-]+[a-zA-Z0-9,._+:@%\/\-\t ]*) ?(\*\*\*?)*/);
       if (cmd === null) {
         this.updateOutput('Invalid command - try again or ? for help', 'red');
         el.value = '';
@@ -179,79 +188,82 @@ class OmwApp extends LitElement {
 	<ul>
           <li value="cmdHello">h (hello) - start day</li>
           <li value="cmdAdd">a (add) &lt;task&gt; - add &lt;task&gt; entry with current time (use at end of task, not beginning)</li>
-          <li value="cmdAddBreak">a (add) &lt;task&gt; ** - add break &lt;task&gt; entry with current time (ie: a break ***) (use at end of task, not beginning)</li>
-          <li value="cmdAddIgnore">a (add) &lt;task&gt;*** - add ignored &lt;task&gt; entry with current time (ie: a commuting ***) (use at end of task, not beginning)</li>
+          <li value="cmdAddBreak">b (break) - shortcut to add break **</li>
+          <li value="cmdAddIgnore">i (ignore) - shortcut to add ignore ***</li>
           <li value="cmdReport">r (report) &lt;task&gt;*** - display this week\'s time report')</li>
           <li value="cmdLast">l (last) - display last week\'s time report</li>
           <li value="cmdStretch">s (stretch) &lt;task&gt;*** - stretch last task to current time')</li>
           <li value="cmdEdit">e (edit) - edit current timesheet</li>
-          <li value="cmdBreak">b (break) - shortcut to add break **</li>
           <li value="cmdToggle">? (help) - toggle this help text display</li>
         </ul>`
   }
 
   updated(changedProperties) {
+    console.log('PROPS PASSED TO UPDATED');
     changedProperties.forEach((oldValue, propName) => {
+      console.log(`OLD = ${oldValue}`);
+      console.log(`PROP NAME = ${propName}`);
     });
-    console.log('PROP PASSED TO UPDATED');
-    console.dir(changedProperties);
   }
 
   async omwAdd(argv) {
-    let response = await fetch(`http://127.0.0.1:31337/omw/add`, {
-      method: 'POST',
-      body: {"args": argv},
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    let data = await response.json()
-    console.log(data);
-    return data;
+    await this.postApi('add', {"args": argv});
   }
 
   async omwEdit() {
-    let response = await fetch(`http://127.0.0.1:31337/omw/edit`, {
-      method: 'GET',
-    });
-    let data = await response.json()
-    console.log(data);
-    return data;
+    await this.getApi('edit');
   }
 
   async omwHello() {
-    let response = await fetch(`http://127.0.0.1:31337/omw/hello`, {
-      method: 'POST',
-      body: {},
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    let data = await response.json()
-    console.log(data);
-    return data;
+    await this.postApi('hello', {});
   }
 
   async omwReport() {
-    let response = await fetch(`http://127.0.0.1:31337/omw/report`, {
-      method: 'GET',
-    });
-    let data = await response.json()
-    console.log(data);
-    return data;
+    await this.getApi('report');
   }
 
   async omwStretch() {
-    let response = await fetch(`http://127.0.0.1:31337/omw/stretch`, {
-      method: 'POST',
-      body: {},
-      headers: {
-        'Content-Type': 'application/json'
-      }
-    });
-    let data = await response.json()
-    console.log(data);
-    return data;
+    await this.postApi('stretch', {});
+  }
+
+  async getApi(endpoint) {
+    try {
+      let response = await fetch(`http://localhost:31337/omw/${endpoint}`, {
+        method: 'GET',
+        mode: 'same-origin',
+        cache: 'no-cache',
+        redirect: 'error',
+        referrer: 'no-referrer',
+      });
+      let tmp = await response.text();
+      let data = tmp ? JSON.parse(tmp) : {};
+      console.log(JSON.stringify(data));
+      return data;
+    } catch (error) {
+      console.error('Error:', error);
+    }
+  }
+
+  async postApi(endpoint, body) {
+    try {
+      let response = await fetch(`http://localhost:31337/omw/${endpoint}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        mode: 'same-origin',
+        cache: 'no-cache',
+        redirect: 'error',
+        referrer: 'no-referrer',
+        body: JSON.stringify(body)
+      });
+      let tmp = await response.text();
+      let data = tmp ? JSON.parse(tmp) : {};
+      console.log(JSON.stringify(data));
+      return data;
+    } catch (error) {
+      console.error('Error:', error);
+    }
   }
 }
 
