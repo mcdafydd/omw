@@ -99,11 +99,11 @@ func Build(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	println("Running BuildPkg()")
+/*	println("Running BuildPkg()")
 	err = BuildPkg(ctx)
 	if err != nil {
 		return err
-	}
+	}*/
 	mg.CtxDeps(ctx, Target)
 	println("Success! Enjoy Out Of My Way Time Tracker.")
 

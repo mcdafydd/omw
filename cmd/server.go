@@ -83,6 +83,8 @@ func Run(args []string) error {
 	r := mux.NewRouter()
 	r.HandleFunc("/omw/{command}", OmwHandler).Methods("GET", "POST")
 	r.PathPrefix("/").Handler(http.FileServer(statikFS))
+	r.Use(setCorbHeaderMiddleware)
+	r.Use(setCorsHeaderMiddleware)
 
 	port := os.Getenv("OMW_PORT")
 	if port == "" {
@@ -111,6 +113,15 @@ func Run(args []string) error {
 func setCorbHeaderMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("X-Content-Type-Options", "nosniff")
+		// Call the next handler, which can be another middleware in the chain, or the final handler.
+		next.ServeHTTP(w, r)
+	})
+}
+
+func setCorsHeaderMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:31337")
+		w.Header().Set("Vary", "Origin")
 		// Call the next handler, which can be another middleware in the chain, or the final handler.
 		next.ServeHTTP(w, r)
 	})

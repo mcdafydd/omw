@@ -139,6 +139,9 @@ class OmwApp extends LitElement {
       case 'b':
         this.omwAdd(['break', '**']);
         break;
+      case 'i':
+        this.omwAdd(['ignore', '***']);
+        break;
       case '?':
         this.showReport = false;
         this.toggleHelp();
@@ -194,61 +197,61 @@ class OmwApp extends LitElement {
     console.dir(changedProperties);
   }
 
-  omwAdd(argv) {
-    async () => {
-      const response = await fetch('http://127.0.0.1:31337/omw/add', {
-        method: 'POST',
-        body: {"args": argv},
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      console.log(response);
-    }
+  async omwAdd(argv) {
+    let response = await fetch(`http://127.0.0.1:31337/omw/add`, {
+      method: 'POST',
+      body: {"args": argv},
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    let data = await response.json()
+    console.log(data);
+    return data;
   }
 
-  omwEdit() {
-    async () => {
-      const response = await fetch('http://127.0.0.1:31337/omw/edit', {
-        method: 'GET',
-      });
-      console.log(response);
-    }
+  async omwEdit() {
+    let response = await fetch(`http://127.0.0.1:31337/omw/edit`, {
+      method: 'GET',
+    });
+    let data = await response.json()
+    console.log(data);
+    return data;
   }
 
-  omwHello() {
-    async () => {
-      const response = await fetch('http://127.0.0.1:31337/omw/hello', {
-        method: 'POST',
-        body: {},
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      console.log(response);
-    }
+  async omwHello() {
+    let response = await fetch(`http://127.0.0.1:31337/omw/hello`, {
+      method: 'POST',
+      body: {},
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    let data = await response.json()
+    console.log(data);
+    return data;
   }
 
-  omwReport() {
-    async () => {
-      const response = await fetch('http://127.0.0.1:31337/omw/report', {
-        method: 'GET',
-      });
-      console.log(response);
-    }
+  async omwReport() {
+    let response = await fetch(`http://127.0.0.1:31337/omw/report`, {
+      method: 'GET',
+    });
+    let data = await response.json()
+    console.log(data);
+    return data;
   }
 
-  omwStretch() {
-    async () => {
-      const response = await fetch('http://127.0.0.1:31337/omw/stretch', {
-        method: 'POST',
-        body: {},
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      console.log(response);
-    }
+  async omwStretch() {
+    let response = await fetch(`http://127.0.0.1:31337/omw/stretch`, {
+      method: 'POST',
+      body: {},
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+    let data = await response.json()
+    console.log(data);
+    return data;
   }
 }
 
