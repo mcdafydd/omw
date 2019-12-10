@@ -82,7 +82,7 @@ func Run(args []string) error {
 	}
 
 	r := mux.NewRouter()
-	r.HandleFunc("/omw/report/{from}/{to}", OmwHandler).Methods("GET")
+	r.HandleFunc("/omw/{command}/{from}/{to}", OmwHandler).Methods("GET")
 	r.HandleFunc("/omw/{command}", OmwHandler).Methods("GET")
 	r.HandleFunc("/omw/{command}", OmwHandler).Methods("OPTIONS")
 	r.HandleFunc("/omw/{command}", OmwHandler).Methods("POST")
@@ -145,8 +145,7 @@ func OmwHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	log.Println("Vars: %q", vars)
-	log.Println("Command: %v", vars["command"])
+	log.Println("Vars", vars)
 	log.Println("Body", r.Body)
 	switch vars["command"] {
 	case "add", "a":
@@ -160,11 +159,13 @@ func OmwHandler(w http.ResponseWriter, r *http.Request) {
 	case "hello", "h":
 		server.Hello()
 	case "report", "r":
-		re := regexp.MustCompile(`(?P<date>20[12][0-9]-[0-9][1-9]-[0123][0-9)`)
+		re := regexp.MustCompile(`(?P<date>20[12][0-9]-[0-9][1-9]-[0123][1-9])`)
 		matchFrom := re.FindStringSubmatch(vars["from"])
 		matchTo := re.FindStringSubmatch(vars["to"])
 		w.Header().Set("Content-Type", "application/json")
 		if matchFrom == nil || matchTo == nil {
+			log.Println("From: %q", matchFrom)
+			log.Println("To: %q", matchTo)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -180,6 +181,5 @@ func OmwHandler(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusBadRequest)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
 	return
 }
