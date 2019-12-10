@@ -313,10 +313,7 @@ func (b *Backend) formatReport(report Report, format formatType) (string, error)
 }
 
 func (b *Backend) parseEntry(s string) (*Entry, error) {
-	re, err := regexp.Compile(`(?P<task>[a-zA-Z0-9,._+:@%\/-]+[a-zA-Z0-9,._+:@%\/\-\t ]*) ?(?P<mod>\*\*\*?)*`)
-	if err != nil {
-		return nil, errors.New("Invalid regex in parseEntry")
-	}
+	re := regexp.MustCompile(`(?P<task>[a-zA-Z0-9,._+:@%\/-]+[a-zA-Z0-9,._+:@%\/\-\t ]*) ?(?P<mod>\*\*\*?)*`)
 	matches := re.FindStringSubmatch(s)
 	if matches == nil {
 		return nil, errors.New("Invalid string")

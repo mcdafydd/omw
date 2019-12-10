@@ -23,6 +23,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
 	"time"
 
 	"github.com/gorilla/mux"
@@ -81,10 +82,14 @@ func Run(args []string) error {
 	}
 
 	r := mux.NewRouter()
-	r.HandleFunc("/omw/{command}", OmwHandler).Methods("GET", "POST")
+	r.HandleFunc("/omw/report/{from}/{to}", OmwHandler).Methods("GET")
+	r.HandleFunc("/omw/{command}", OmwHandler).Methods("GET")
+	r.HandleFunc("/omw/{command}", OmwHandler).Methods("OPTIONS")
+	r.HandleFunc("/omw/{command}", OmwHandler).Methods("POST")
 	r.PathPrefix("/").Handler(http.FileServer(statikFS))
+	r.Use(mux.CORSMethodMiddleware(r))
 	r.Use(setCorbHeaderMiddleware)
-	r.Use(setCorsHeaderMiddleware)
+	r.Use(setCorsOriginMiddleware)
 
 	port := os.Getenv("OMW_PORT")
 	if port == "" {
@@ -118,7 +123,7 @@ func setCorbHeaderMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-func setCorsHeaderMiddleware(next http.Handler) http.Handler {
+func setCorsOriginMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:31337")
 		w.Header().Set("Vary", "Origin")
@@ -135,7 +140,12 @@ func OmwHandler(w http.ResponseWriter, r *http.Request) {
 	if decErr == io.EOF {
 		decErr = nil // ignore EOF errors caused by empty response body
 	}
+	if r.Method == http.MethodOptions {
+		log.Println("Handling preflight request: %v", vars["command"])
+		return
+	}
 
+	log.Println("Vars: %q", vars)
 	log.Println("Command: %v", vars["command"])
 	log.Println("Body", r.Body)
 	switch vars["command"] {
@@ -150,12 +160,15 @@ func OmwHandler(w http.ResponseWriter, r *http.Request) {
 	case "hello", "h":
 		server.Hello()
 	case "report", "r":
+		re := regexp.MustCompile(`(?P<date>20[12][0-9]-[0-9][1-9]-[0123][0-9)`)
+		matchFrom := re.FindStringSubmatch(vars["from"])
+		matchTo := re.FindStringSubmatch(vars["to"])
 		w.Header().Set("Content-Type", "application/json")
-		if len(body.Args) != 3 {
+		if matchFrom == nil || matchTo == nil {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		output, err := server.Report(body.Args[0], body.Args[1], body.Args[2])
+		output, err := server.Report(vars["from"], vars["to"], "json")
 		if err != nil {
 			io.WriteString(w, err.Error())
 		} else {

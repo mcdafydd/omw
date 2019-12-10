@@ -108,7 +108,13 @@ class OmwApp extends LitElement {
         break;
       case 'report':
       case 'r':
-        this.omwReport('2019-05-27', '2019-06-03', 'json').then((report, err) => {
+        if (argv.length === 0) {
+          this.omwReport('2019-12-05', '2019-12-09');
+        }
+        else {
+          this.omwReport('2019-12-05', '2019-12-09');
+        }
+/*        this.omwReport().then((report, err) => {
           if (err) {
             this.showReport = false;
             this.updateOutput(err, 'red');
@@ -118,7 +124,7 @@ class OmwApp extends LitElement {
             this.showReport = true;
             this.reportData = report;
           }
-        });
+        });*/
         break;
       case 'stretch':
       case 's':
@@ -126,7 +132,13 @@ class OmwApp extends LitElement {
         break;
       case 'last':
       case 'l':
-        this.omwReport('2019-05-21', '2019-05-26', 'json').then((report, err) => {
+        if (argv.length === 0) {
+          this.omwReport('2019-12-01', '2019-12-05');
+        }
+        else {
+          this.omwReport('2019-12-01', '2019-12-05');
+        }
+/*        this.omwReport().then((report, err) => {
           if (err) {
             this.showReport = false;
             this.updateOutput(err, 'red');
@@ -136,7 +148,7 @@ class OmwApp extends LitElement {
             this.showReport = true;
             this.reportData = report;
           }
-        })
+        });*/
         break;
       case 'edit':
       case 'e':
@@ -218,8 +230,9 @@ class OmwApp extends LitElement {
     await this.postApi('hello', {});
   }
 
-  async omwReport() {
-    await this.getApi('report');
+  // 'from' and 'to' should be YYYY-MM-DD format strings
+  async omwReport(from, to) {
+    await this.getApi(`report/${from}/${to}`);
   }
 
   async omwStretch() {
