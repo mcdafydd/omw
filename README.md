@@ -1,6 +1,6 @@
 # OutOfMyWay Time Tracker
 
-*** (12/09/19) In active development, it may not work exactly as described ***
+*** (12/11/19) In active development, it may not work exactly as described, but it's getting close ***
 
 A minimalist time tracker.  The primary purposes of this tool are:
 
@@ -17,7 +17,7 @@ Secondary goals are:
 * (future) Provide an extensible API to the reporting functions
 * (future) Sychronize your timesheet to a backend to allow seamless sharing between devices
 
-This time-tracking tool was inspired by the [Ultimate Time Tracker](https://github.com/larose/utt).  The original version (and this version at the moment) calls `utt` as an external dependency.
+This time-tracking tool was inspired by the [Ultimate Time Tracker](https://github.com/larose/utt).
 
 Transfering quick tasks from this tool into an external tracking system (ie: Workday) is still largely manual. Since this is usually a requirement for enterprise users, streamlining this process will be a core part of reaching version 1.0.
 
@@ -39,19 +39,19 @@ To use the browser interface:
 1. Run `omw server` and note the URL returned
 2. Browse to the URL
 3. Enter a command.  If you need help, toggle the slider or enter the command `?`. A successful command should quickly execute its function and then minimize the window.
-4. Use the `r` and `l` commands to generate reports that you can use to capture time in an external tool.
+4. The calendar is hidden by default but should automatically fetch recent events in the background.  To display them, check the `report` checkbox, or enter the `r` command.
+5. Use the `r` and `l` commands as a keyboard-driven way to move the calendar focus. **(not yet implemented)** 
 
 Optionally:
-** NOTE this function is not yet released **
+**not yet released**
 
 1. If you want to add support for global hotkeys to Omw, install the Chrome app omw-hotkeys
 2. After setting your preferred default action key combo, press it, and the Omw browser interface should appear
 
 ## For developing
 
-* NodeJS v11.14.0+
-* Polymer-cli (installed with `npm install`)
 * Go 1.11+
+* NodeJS v11.14.0+
 
 ### Building
 

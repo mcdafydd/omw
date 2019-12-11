@@ -21,6 +21,8 @@ import (
 type formatType int
 
 const (
+	// FormatFC indicates that user requested FC report format output
+	FormatFC = iota
 	// FormatJSON indicates that user requested JSON report format output
 	FormatJSON = iota
 	// FormatText indicates that user requested text template report format output
@@ -28,7 +30,7 @@ const (
 )
 
 func (d formatType) String() string {
-	return [...]string{"JSON", "Text"}[d]
+	return [...]string{"FC", "JSON", "Text"}[d]
 }
 
 // TemplateString defines the template used to output a Report() with FormatText
@@ -72,6 +74,20 @@ type Entry struct {
 	Task     string        `json:"task"`
 	Ignore   bool          `json:"ignore"`
 	Brk      bool          `json:"break"`
+}
+
+// FCEntry describes an entry used by FullCalendar report format
+type FCEntry struct {
+	Start      time.Time `json:"start"`
+	End        time.Time `json:"end"`
+	Title      string    `json:"title"`
+	URL        string    `json:"duration"`
+	ClassNames []string  `json:"classNames"`
+}
+
+// FCReport describes the format of a FullCalendar-compatible report
+type FCReport struct {
+	Events []FCEntry `json:"events"`
 }
 
 // Report describes a report
@@ -145,8 +161,11 @@ func (b *Backend) Hello() error {
 	return b.addEntry("hello")
 }
 
-// Report outputs various report formats to specified type (for now - just text)
-// We add 24 hours to the parsed end time so that when a user specifies
+// Report outputs various report formats to one of the following types:
+// Text - command-line default
+// JSON - web default
+// FC   - web fullcalendar JSON feed URL
+// Add 24 hours to the parsed end time so that when a user specifies
 // --from 2019-01-01 --to 2019-01-02
 // that translates to "report on tasks that occurred between 2019-01-01 00:00
 // and "2019-01-03 00:00"
@@ -227,6 +246,9 @@ func (b *Backend) Report(start, end string, format string) (output string, err e
 	if format == "json" {
 		f = FormatJSON
 	}
+	if format == "fc" {
+		f = FormatFC
+	}
 	b.lastReport = &report
 	output, err = b.formatReport(report, formatType(f))
 	if err != nil {
@@ -297,6 +319,23 @@ func (b *Backend) addEntry(s string) error {
 func (b *Backend) formatReport(report Report, format formatType) (string, error) {
 	if format == FormatJSON {
 		output, err := json.Marshal(report)
+		return string(output), err
+	}
+
+	// 2006-01-02T15:04:05-0700
+	if format == FormatFC {
+		entries := []FCEntry{}
+		entries = append(entries, FCEntry{
+			Start:      "2019-12-01T00:00:00-00:00",
+			End:        "2019-12-01T00:10:00-00:00",
+			Title:      "test task",
+			URL:        "",
+			ClassNames: []string{"ignore", "break"},
+		})
+		fcReport := FCReport{
+			Events: entries,
+		}
+		output, err := json.Marshal(fcReport)
 		return string(output), err
 	}
 

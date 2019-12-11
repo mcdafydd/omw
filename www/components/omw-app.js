@@ -109,7 +109,8 @@ class OmwApp extends LitElement {
       case 'report':
       case 'r': {
         var err = '';
-        let today = d.getFullYear() + '-' + d.getMonth()+1 + '-' + d.getDate();
+        let month = d.getMonth() + 1;
+        let today = d.getFullYear() + '-' + month + '-' + d.getDate();
         if (argv.length === 0) {
           // provide today's report
           err = await this.omwReport(today, today);
@@ -175,10 +176,12 @@ class OmwApp extends LitElement {
         let day = d.getDay();
         let diff = d.getDate() - day + (day === 0 ? -6:1); // adjust when day is sunday
         let lastMonday = new Date(d.setDate(diff));
-        let start = lastMonday.getFullYear() + '-' + lastMonday.getMonth()+1 + '-' + lastMonday.getDate();
+        let startMonth = lastMonday.getMonth()+1;
+        let endMonth = lastFriday.getMonth()+1;
+        let start = lastMonday.getFullYear() + '-' + startMonth + '-' + lastMonday.getDate();
 
         let lastFriday = lastMonday + 4;
-        let end = lastFriday.getFullYear() + '-' + lastFriday.getMonth()+1 + '-' + lastFriday.getDate();
+        let end = lastFriday.getFullYear() + '-' + endMonth + '-' + lastFriday.getDate();
 
         let err = await this.omwReport(start, end);
         if (err) {

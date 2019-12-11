@@ -219,6 +219,22 @@ class FullCalendar extends LitElement {
       // select: info=>console.log('select'),
       // dateClick: info=>console.log('dateClick'),
       defaultView: 'dayGridWeek',
+      eventSources: [
+        {
+          url: 'http://localhost:31337/omw/report',
+          method: 'GET',
+          startParam: 'start',
+          endParam: 'end',
+          extraParams: {
+            format: 'fc'
+          },
+          failure: function() {
+            console.error('there was an error while fetching events!');
+          },
+          color: 'pink',
+          textColor: 'black'
+        }
+      ]
     };
 
     const calendarEl = this.shadowRoot.getElementById('calendar');

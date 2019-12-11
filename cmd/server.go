@@ -82,10 +82,11 @@ func Run(args []string) error {
 	}
 
 	r := mux.NewRouter()
-	r.HandleFunc("/omw/{command}/{from}/{to}", OmwHandler).Methods("GET")
-	r.HandleFunc("/omw/{command}", OmwHandler).Methods("GET")
-	r.HandleFunc("/omw/{command}", OmwHandler).Methods("OPTIONS")
-	r.HandleFunc("/omw/{command}", OmwHandler).Methods("POST")
+	r.HandleFunc("/omw/{command:report}", OmwHandler).Methods("GET").Queries("start", "{start}", "end", "{end}", "format", "{format}")
+	r.HandleFunc("/omw/{command:report}", OmwHandler).Methods("GET").Queries("start", "{start}", "end", "{end}")
+	r.HandleFunc("/omw/{command:(?!report)}", OmwHandler).Methods("GET")
+	r.HandleFunc("/omw/{command:(?!report)}", OmwHandler).Methods("OPTIONS")
+	r.HandleFunc("/omw/{command:(?!report)}", OmwHandler).Methods("POST")
 	r.PathPrefix("/").Handler(http.FileServer(statikFS))
 	r.Use(mux.CORSMethodMiddleware(r))
 	r.Use(setCorbHeaderMiddleware)
@@ -169,15 +170,19 @@ func OmwHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusConflict)
 		}
 	case "report", "r":
-		re := regexp.MustCompile(`(?P<date>20[12][0-9]-[0-9][1-9]-[0123][1-9])`)
-		matchFrom := re.FindStringSubmatch(vars["from"])
-		matchTo := re.FindStringSubmatch(vars["to"])
+		re := regexp.MustCompile(`(?P<date>20[12][0-9]-[0-9][1-9]-[0123][1-9])T(?P<time>[0-9][0-9]:[0-9][0-9]:[0-9][0-9])[-+](?P<tz>[012][0-9]:[034][05])`)
+		matchStart := re.FindStringSubmatch(vars["start"])
+		matchEnd := re.FindStringSubmatch(vars["end"])
 		w.Header().Set("Content-Type", "application/json")
-		if matchFrom == nil || matchTo == nil {
+		if matchStart == nil || matchEnd == nil {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		output, err := server.Report(vars["from"], vars["to"], "json")
+		format := "json"
+		if vars["format"] == "fc" {
+			format = "fc"
+		}
+		output, err := server.Report(vars["start"], vars["end"], format)
 		if err != nil {
 			io.WriteString(w, err.Error())
 		} else {
