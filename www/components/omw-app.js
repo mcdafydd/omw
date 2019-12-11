@@ -290,6 +290,10 @@ class OmwApp extends LitElement {
         redirect: 'error',
         referrer: 'no-referrer',
       });
+      if (!response.ok) {
+        this.updateOutput(`Error: Server responded with ${response.status} ${response.statusText}`, 'red');
+        return {};
+      }
       let tmp = await response.text();
       let data = tmp ? JSON.parse(tmp) : {};
       console.log(JSON.stringify(data));
@@ -312,6 +316,10 @@ class OmwApp extends LitElement {
         referrer: 'no-referrer',
         body: JSON.stringify(body)
       });
+      if (!response.ok) {
+        this.updateOutput(`Error: Server responded with ${response.status} ${response.statusText}`, 'red');
+        return {};
+      }
       let tmp = await response.text();
       let data = tmp ? JSON.parse(tmp) : {};
       console.log(JSON.stringify(data));
