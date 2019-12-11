@@ -1,6 +1,6 @@
 # OutOfMyWay Time Tracker
 
-*** (10/26/19) In active development, it may not work exactly as described ***
+*** (12/09/19) In active development, it may not work exactly as described ***
 
 A minimalist time tracker.  The primary purposes of this tool are:
 
