@@ -99,14 +99,13 @@ type worker struct {
 }
 
 // Add appends the current time and task to your timesheet
-func (b *Backend) Add(args []string) {
+func (b *Backend) Add(args []string) error {
 	task := strings.Join(args, " ")
-	b.addEntry(task)
-	return
+	return b.addEntry(task)
 }
 
 // Close cleans up before exiting
-func (b *Backend) Close() (err error) {
+func (b *Backend) Close() error {
 	if b.fp != nil {
 		b.fp.Close()
 	}
@@ -115,36 +114,35 @@ func (b *Backend) Close() (err error) {
 
 // Edit opens your current timesheet in your default editor or
 // in the editor specified by the EDITOR environment variable
-func (b *Backend) Edit() (err error) {
+func (b *Backend) Edit() error {
+	editor := DefaultEditor
 	fileLock := flock.New(b.config.omwFile)
 	locked, err := fileLock.TryLock()
 	defer fileLock.Unlock()
 	if err != nil {
 		return err
 	}
-	if locked {
-		editor := DefaultEditor
-		if preferred := os.Getenv("EDITOR"); preferred != "" {
-			editor = preferred
-		}
-		if term := os.Getenv("OMW_TERM"); runtime.GOOS != "windows" && term != "" {
-			editor = fmt.Sprintf("%s -e %s", term, editor)
-		}
-		argv := []string{b.config.omwFile}
-		cmd := exec.CommandContext(b.ctx, editor, argv...)
-		// should work if run from terminal
-		cmd.Stdin = os.Stdin
-		cmd.Stdout = os.Stdout
-		return runCommand(cmd)
+	if !locked {
+		return errors.New("Unable to get file lock")
 	}
-	return errors.New("Unable to get lock on omw.log. Try again.")
+	if preferred := os.Getenv("EDITOR"); preferred != "" {
+		editor = preferred
+	}
+	if term := os.Getenv("OMW_TERM"); runtime.GOOS != "windows" && term != "" {
+		editor = fmt.Sprintf("%s -e %s", term, editor)
+	}
+	argv := []string{b.config.omwFile}
+	cmd := exec.CommandContext(b.ctx, editor, argv...)
+	// should work if run from terminal
+	cmd.Stdin = os.Stdin
+	cmd.Stdout = os.Stdout
+	return runCommand(cmd)
 }
 
 // Hello appends a newline and then another line to end of timesheet with current time
 // and the word "Hello".  Meant to be run at the beginning of a new work day
-func (b *Backend) Hello() {
-	b.addEntry("hello")
-	return
+func (b *Backend) Hello() error {
+	return b.addEntry("hello")
 }
 
 // Report outputs various report formats to specified type (for now - just text)
@@ -264,7 +262,7 @@ func (b *Backend) Stretch() error {
 
 // addEntry seeks to end of file and appends a formatted string
 // will create a new empty file if file is missing
-func (b *Backend) addEntry(s string) (err error) {
+func (b *Backend) addEntry(s string) error {
 	fp, err := os.OpenFile(b.config.omwFile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
 	defer fp.Close()
 	if err != nil {
@@ -287,11 +285,12 @@ func (b *Backend) addEntry(s string) (err error) {
 	locked, err := fileLock.TryLock()
 	defer fileLock.Unlock()
 	if err != nil {
-		// handle locking error
+		return err
 	}
-	if locked {
-		fp.WriteString(entry)
+	if !locked {
+		return errors.New("Unable to get file lock")
 	}
+	fp.WriteString(entry)
 	return nil
 }
 

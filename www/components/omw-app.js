@@ -84,7 +84,7 @@ class OmwApp extends LitElement {
   }
 
   // handleCommand process user input and hide window after handling command without error
-  handleCommand(el, input) {
+  async handleCommand(el, input) {
     const d = new Date();
     console.log(d.toISOString(), ': Command entered = ', input);
     // clear textarea for next command
@@ -108,23 +108,55 @@ class OmwApp extends LitElement {
         break;
       case 'report':
       case 'r':
+        let d = new Date();
+        let today = d.getFullYear() + '-' + d.getMonth()+1 + '-' + d.getDate();
         if (argv.length === 0) {
-          this.omwReport('2019-12-05', '2019-12-09');
+          // provide today's report
+          let err = await this.omwReport(today, today);
+        }
+        if (argv.length === 1) {
+          // process argument as either:
+          // YYYY-MM-DD
+          // as previous day offset from current
+          if (argv[0].match(/\d{1,2}/)) {
+            let p = parseInt(argv[0])
+            if (p === 0) {
+              let err = await this.omwReport(today, today);
+            }
+          }
+          if (argv[0].match(/20[12][0-9]-[0-9][1-9]-[0123][1-9]/)) {
+            // provided date must be today or earlier
+            var p = Date.parse(argv[0]);
+            if (p > Date.parse(today)) {
+              console.error('Invalid date - must be today or earlier');
+            }
+
+          }
+          let d = new Date();
+          let today = d.getFullYear() + '-' + d.getMonth()+1 + '-' + d.getDate();
+          let err = await this.omwReport(today, today);
+        }
+        if (argv.length >= 2) {
+          // process arguments as either:
+          // YYYY-MM-DD
+          // as previous day offsets from current
+          // ignore any additional trailing arguments
+          if (argv[0].match(/\d/)) {
+
+          }
+          if (argv[0].match(/20[12][0-9]-[0-9][1-9]-[0123][1-9]/)) {
+
+          }
+        }
+        if (err) {
+          this.showReport = false;
+          this.updateOutput(err, 'red');
+          console.error('OmwReport', err)
         }
         else {
-          this.omwReport('2019-12-05', '2019-12-09');
+          this.showReport = true;
+          this.reportData = report;
         }
-/*        this.omwReport().then((report, err) => {
-          if (err) {
-            this.showReport = false;
-            this.updateOutput(err, 'red');
-            console.error('OmwReport', err)
-          }
-          else {
-            this.showReport = true;
-            this.reportData = report;
-          }
-        });*/
         break;
       case 'stretch':
       case 's':
@@ -132,23 +164,21 @@ class OmwApp extends LitElement {
         break;
       case 'last':
       case 'l':
-        if (argv.length === 0) {
-          this.omwReport('2019-12-01', '2019-12-05');
+        let d = new Date();
+        let day = d.getDay();
+        let diff = d.getDate() - day + (day === 0 ? -6:1); // adjust when day is sunday
+        let lastMonday = new Date(d.setDate(diff));
+        let lastFriday = lastMonday + 4;
+        let err = await this.omwReport(lastMonday, lastFriday);
+        if (err) {
+          this.showReport = false;
+          this.updateOutput(err, 'red');
+          console.error('OmwReport', err)
         }
         else {
-          this.omwReport('2019-12-01', '2019-12-05');
+          this.showReport = true;
+          this.reportData = report;
         }
-/*        this.omwReport().then((report, err) => {
-          if (err) {
-            this.showReport = false;
-            this.updateOutput(err, 'red');
-            console.error('OmwReport', err)
-          }
-          else {
-            this.showReport = true;
-            this.reportData = report;
-          }
-        });*/
         break;
       case 'edit':
       case 'e':

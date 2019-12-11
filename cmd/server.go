@@ -141,7 +141,7 @@ func OmwHandler(w http.ResponseWriter, r *http.Request) {
 		decErr = nil // ignore EOF errors caused by empty response body
 	}
 	if r.Method == http.MethodOptions {
-		log.Println("Handling preflight request: %v", vars["command"])
+		log.Println("Handling preflight request", vars["command"])
 		return
 	}
 
@@ -149,23 +149,31 @@ func OmwHandler(w http.ResponseWriter, r *http.Request) {
 	log.Println("Body", r.Body)
 	switch vars["command"] {
 	case "add", "a":
-		server.Add(body.Args)
+		if err := server.Add(body.Args); err != nil {
+			w.WriteHeader(http.StatusConflict)
+		}
 	case "break", "b":
-		server.Add([]string{"break", "**"})
+		if err := server.Add([]string{"break", "**"}); err != nil {
+			w.WriteHeader(http.StatusConflict)
+		}
 	case "edit", "e":
-		server.Edit()
+		if err := server.Edit(); err != nil {
+			w.WriteHeader(http.StatusConflict)
+		}
 	case "ignore", "i":
-		server.Add([]string{"ignore", "***"})
+		if err := server.Add([]string{"ignore", "***"}); err != nil {
+			w.WriteHeader(http.StatusConflict)
+		}
 	case "hello", "h":
-		server.Hello()
+		if err := server.Hello(); err != nil {
+			w.WriteHeader(http.StatusConflict)
+		}
 	case "report", "r":
 		re := regexp.MustCompile(`(?P<date>20[12][0-9]-[0-9][1-9]-[0123][1-9])`)
 		matchFrom := re.FindStringSubmatch(vars["from"])
 		matchTo := re.FindStringSubmatch(vars["to"])
 		w.Header().Set("Content-Type", "application/json")
 		if matchFrom == nil || matchTo == nil {
-			log.Println("From: %q", matchFrom)
-			log.Println("To: %q", matchTo)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
@@ -176,7 +184,9 @@ func OmwHandler(w http.ResponseWriter, r *http.Request) {
 			io.WriteString(w, output)
 		}
 	case "stretch", "s":
-		server.Stretch()
+		if err := server.Stretch(); err != nil {
+			w.WriteHeader(http.StatusConflict)
+		}
 	default:
 		w.WriteHeader(http.StatusBadRequest)
 		return
