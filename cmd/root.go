@@ -48,12 +48,12 @@ var MousetrapHelpText string
 var rootCmd = &cobra.Command{
 	Use:   "omw",
 	Short: "Omw - Out of My Way Time Tracker",
-	Long: `A minimalist time tracker inspired by the Ultimate Time Tracker (UTT). 
-	
+	Long: `A minimalist time tracker inspired by the Ultimate Time Tracker (UTT).
+
 	The primary purposes of this tool are:
 
 	1. Help a user track time and tasks without getting in the way of flow
-	2. Provide a simple, extendable reporting interface to help transfer 
+	2. Provide a simple, extendable reporting interface to help transfer
 	tasks to an external system`,
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		if mousetrap.StartedByExplorer() {
@@ -64,12 +64,11 @@ var rootCmd = &cobra.Command{
 			fmt.Println(err)
 			os.Exit(1)
 		}
-		/*if len(args) == 0 {
+		if len(args) == 0 {
 			cmd.Help()
 			os.Exit(0)
-		}*/
-		return serverCmd.RunE(cmd, args)
-		//return err
+		}
+		return err
 	},
 	PersistentPostRunE: func(cmd *cobra.Command, args []string) (err error) {
 		return server.Close()
