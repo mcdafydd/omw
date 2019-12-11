@@ -67,9 +67,9 @@ class OmwApp extends LitElement {
         <input type="checkbox" id="helpme" class="toggle" @change="${this.toggleHelp}" ?checked=${this.showHelp}></input>
         <input type="checkbox" id="reportme" class="toggle" @change="${this.toggleReport}" ?checked=${this.showReport}></input>
       </div>
+      <span>${this.outputText}</span>
       <div class="${this.outputClass}" ?hidden=${!this.showReport}>
-        <span>${this.outputText}</span>
-	<full-calendar events="${this.events}"></full-calendar>
+    	<full-calendar events="${this.events}"></full-calendar>
       </div>
       <div id="helpText" ?hidden=${!this.showHelp}>${this.getHelpText()}</div>
     `;
@@ -291,7 +291,7 @@ class OmwApp extends LitElement {
         referrer: 'no-referrer',
       });
       if (!response.ok) {
-        this.updateOutput(`Error: Server responded with ${response.status} ${response.statusText}`, 'red');
+        this.updateOutput(`Error: Server responded with ${response.status} (${response.statusText})`, 'red');
         return {};
       }
       let tmp = await response.text();
@@ -317,7 +317,7 @@ class OmwApp extends LitElement {
         body: JSON.stringify(body)
       });
       if (!response.ok) {
-        this.updateOutput(`Error: Server responded with ${response.status} ${response.statusText}`, 'red');
+        this.updateOutput(`Error: Server responded with ${response.status} (${response.statusText})`, 'red');
         return {};
       }
       let tmp = await response.text();
