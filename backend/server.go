@@ -322,12 +322,15 @@ func (b *Backend) formatReport(report Report, format formatType) (string, error)
 		return string(output), err
 	}
 
-	// 2006-01-02T15:04:05-0700
 	if format == FormatFC {
+		fcLayout := "2006-01-02T15:04:05-0700"
+		start, _ := time.Parse(fcLayout, "2019-12-01T00:00:00-00:00")
+		end, _ := time.Parse(fcLayout, "2019-12-01T00:10:00-00:00")
+
 		entries := []FCEntry{}
 		entries = append(entries, FCEntry{
-			Start:      "2019-12-01T00:00:00-00:00",
-			End:        "2019-12-01T00:10:00-00:00",
+			Start:      start,
+			End:        end,
 			Title:      "test task",
 			URL:        "",
 			ClassNames: []string{"ignore", "break"},
