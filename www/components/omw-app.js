@@ -108,7 +108,7 @@ class OmwApp extends LitElement {
         break;
       case 'report':
       case 'r': {
-        var err = '';
+/*        var err = '';
         let month = d.getMonth() + 1;
         let today = d.getFullYear() + '-' + month + '-' + d.getDate();
         if (argv.length === 0) {
@@ -164,7 +164,7 @@ class OmwApp extends LitElement {
         else {
           this.showReport = true;
           this.reportData = report;
-        }
+        }*/
         break;
       }
       case 'stretch':
@@ -173,6 +173,7 @@ class OmwApp extends LitElement {
         break;
       case 'last':
       case 'l': {
+        /*
         let day = d.getDay();
         let diff = d.getDate() - day + (day === 0 ? -6:1); // adjust when day is sunday
         let lastMonday = new Date(d.setDate(diff));
@@ -192,7 +193,7 @@ class OmwApp extends LitElement {
         else {
           this.showReport = true;
           this.reportData = report;
-        }
+        }*/
         break;
       }
       case 'edit':

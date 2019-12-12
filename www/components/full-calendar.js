@@ -179,7 +179,7 @@ class FullCalendar extends LitElement {
 
   static get styles() {
       return css`
-	:host {
+	      :host {
           display: block;
         }
 
@@ -194,6 +194,14 @@ class FullCalendar extends LitElement {
         .fc-scroller {
           height: auto !important;
           overflow-y: hidden !important;
+        }
+
+        .breakEntry {
+          color: lavender;
+        }
+
+        .ignoreEntry {
+          color: beige;
         }`
   }
 

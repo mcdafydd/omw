@@ -170,16 +170,24 @@ func (b *Backend) Hello() error {
 // that translates to "report on tasks that occurred between 2019-01-01 00:00
 // and "2019-01-03 00:00"
 func (b *Backend) Report(start, end string, format string) (output string, err error) {
+	fcLayout := "2006-01-02T15:04:05-07:00"
 	layout := "2006-1-2" // should support optional leading zeros
 	layoutEvent := "2006-1-2 15:4"
 	report := Report{}
 	report.From, err = time.Parse(layout, start)
 	if err != nil {
-		return "", err
+		report.From, err = time.Parse(fcLayout, start)
 	}
+	if err != nil {
+		return "", errors.Wrap(err, "can't parse start time")
+	}
+
 	report.To, err = time.Parse(layout, end)
 	if err != nil {
-		return "", err
+		report.To, err = time.Parse(fcLayout, end)
+	}
+	if err != nil {
+		return "", errors.Wrap(err, "can't parse end time")
 	}
 	report.To = report.To.Add(24 * time.Hour)
 	r, err := os.Open(b.config.omwFile)
@@ -322,26 +330,32 @@ func (b *Backend) formatReport(report Report, format formatType) (string, error)
 		return string(output), err
 	}
 
+	entries := []FCEntry{}
 	if format == FormatFC {
-		fcLayout := "2006-01-02T15:04:05-0700"
-		start, _ := time.Parse(fcLayout, "2019-12-01T00:00:00-00:00")
-		end, _ := time.Parse(fcLayout, "2019-12-01T00:10:00-00:00")
+		for _, entry := range report.Entries {
+			classes := []string{}
+			if entry.Brk {
+				classes = append(classes, "breakEntry")
+			}
+			if entry.Ignore {
+				classes = append(classes, "ignoreEntry")
+			}
 
-		entries := []FCEntry{}
-		entries = append(entries, FCEntry{
-			Start:      start,
-			End:        end,
-			Title:      "test task",
-			URL:        "",
-			ClassNames: []string{"ignore", "break"},
-		})
-		fcReport := FCReport{
-			Events: entries,
+			entries = append(entries, FCEntry{
+				Start:      entry.Start,
+				End:        entry.Start.Add(entry.Duration),
+				Title:      entry.Task,
+				URL:        "",
+				ClassNames: classes,
+			})
 		}
-		output, err := json.Marshal(fcReport)
+		output, err := json.Marshal(FCReport{
+			Events: entries,
+		})
 		return string(output), err
 	}
 
+	// fallback to text format
 	reportTmpl, err := template.New("report").Parse(TemplateString)
 	if err != nil {
 		return "", err
