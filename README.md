@@ -26,32 +26,22 @@ Transfering quick tasks from this tool into an external tracking system (ie: Wor
 ## For running
 
 * The latest release of Omw
-* A recent version of Chrome
+* If you want to use the progressive web app, a recent web browser (we target Chrome for now but others may work)
 
 ### Getting Started
 
-The program has a command-line and browser interface builtin.
+The program has a command-line and HTTP-accessible API builtin.
 
 To use the command-line interface, run the program `omw` without any arguments to get help.
 
-To use the browser interface:
+To use the network API:
 
 1. Run `omw server` and note the URL returned
-2. Browse to the URL
-3. Enter a command.  If you need help, toggle the slider or enter the command `?`. A successful command should quickly execute its function and then minimize the window.
-4. The calendar is hidden by default but should automatically fetch recent events in the background.  To display them, check the `report` checkbox, or enter the `r` command.
-5. Use the `r` and `l` commands as a keyboard-driven way to move the calendar focus. **(not yet implemented)** 
-
-Optionally:
-**not yet released**
-
-1. If you want to add support for global hotkeys to Omw, install the Chrome app omw-hotkeys
-2. After setting your preferred default action key combo, press it, and the Omw browser interface should appear
+2. Visit the Omw PWA URL and install the Chrome extension **coming soon*
 
 ## For developing
 
 * Go 1.11+
-* NodeJS v11.14.0+
 
 ### Building
 
@@ -68,28 +58,16 @@ To run all build stages:
 To run an individual build stage:
 
 ```
-go run mage.go buildui
 go run mage.go buildgo
 go run mage.go buildpkg
 ```
 
 # Architecture
 
-Omw is a simple, stateless, time tracker application, in that there is never a running clock in the background.  It only adds a task with the current timestamp to a text file log, and then compares adjacent timestamps to generate reports.  The timesheet is written line-by-line and stored in the default home directory as returned by `go-homedir` under `.local/share/omw/omw.log`.
+Omw is a simple, stateless, time tracker application, in that there is never a running clock in the background.  It only adds a task with the current timestamp to a text file log, and then compares adjacent timestamps to generate reports.  The timesheet is written line-by-line and stored in the default home directory as returned by the `go-homedir` package under `.local/share/omw/omw.log`.
 
-The binary provides a command-line interface as well as an embedded web application, using the `statik` package, accessible via a Go HTTP server providing a REST-ish API.  An flock() package provides an interface to operating system file locking.
-
-I chose to leverage Chrome to provide cross-platform global (always available) keyboard shortcuts, which proved difficult to do elegantly across Windows, Linux, and MacOS, using only Go dependencies. The global shortcuts are the critical component of the tool to keep you "in flow".  Chrome provides the ability to register global keyboard shortcuts with the Chrome Extensions [Commands API](https://developer.chrome.com/extensions/commands). 
-
-A [LitElement](https://lit-element.polymer-project.org/) web application provides the browser interface.
-
-# Building
-
-Planning to move this into [Mage](https://github.com/magefile/mage) to handle the npm/polymer build commands, and investigating [xgo](https://github.com/karalabe/xgo) to handle the CGO cross-compilation necessary for the Robotgo Hook library.  Until then, running the `go build` step on the desired operating system is probably easier.
+The binary provides a command-line interface and a Go Gorilla Mux HTTP server providing a REST-ish API.  An flock() package provides an interface to operating system file locking.
 
 # References
 
-* [PWA Starter Kit](https://github.com/Polymer/pwa-starter-kit)
 * [Ultimate Time Tracker](https://github.com/larose/utt)
-* [go-homedir](https://github.com/mitchellh/go-homedir)
-* [statik](https://github.com/rakyll/statik)

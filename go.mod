@@ -9,9 +9,6 @@ require (
 	github.com/magefile/mage v1.9.0
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/pkg/errors v0.8.1
-	github.com/rakyll/statik v0.1.6
-	github.com/robotn/gohook v0.0.0-20190414171059-39135b21e438
 	github.com/spf13/cobra v0.0.5
 	github.com/spf13/viper v1.4.0
-	github.com/zserge/lorca v0.1.6
 )
