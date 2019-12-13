@@ -81,7 +81,7 @@ type FCEntry struct {
 	Start      time.Time `json:"start"`
 	End        time.Time `json:"end"`
 	Title      string    `json:"title"`
-	URL        string    `json:"duration"`
+	URL        string    `json:"url"`
 	ClassNames []string  `json:"classNames"`
 }
 
@@ -349,9 +349,10 @@ func (b *Backend) formatReport(report Report, format formatType) (string, error)
 				ClassNames: classes,
 			})
 		}
-		output, err := json.Marshal(FCReport{
+		data := FCReport{
 			Events: entries,
-		})
+		}
+		output, err := json.Marshal(data.Events)
 		return string(output), err
 	}
 
