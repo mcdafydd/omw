@@ -1,7 +1,7 @@
 [Unreleased]
 
 
-[v0.6.0] - 2019-12-16
+[v0.6.1] - 2019-12-16
 
 First release
 
