@@ -118,7 +118,12 @@ func setCorbHeaderMiddleware(next http.Handler) http.Handler {
 
 func setCorsOriginMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Access-Control-Allow-Origin", "http://localhost:31337")
+		origin := r.Header["Origin"][0]
+		if origin == "https://omw.toil.dev" {
+			w.Header().Set("Access-Control-Allow-Origin", "https://omw.toil.dev")
+		} else {
+			w.Header().Set("Access-Control-Allow-Origin", "http://localhost:31337")
+		}
 		w.Header().Set("Vary", "Origin")
 		// Call the next handler, which can be another middleware in the chain, or the final handler.
 		next.ServeHTTP(w, r)
