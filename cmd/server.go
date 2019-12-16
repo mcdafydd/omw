@@ -27,8 +27,6 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
-	_ "github.com/mcdafydd/omw/statik"
-	"github.com/rakyll/statik/fs"
 	"github.com/spf13/cobra"
 )
 
@@ -42,7 +40,7 @@ var serverCmd = &cobra.Command{
 	Use:   "server",
 	Short: "Server starts the hotkey-listener and GUI pop-up",
 	Long: `Server starts the primary functionality of omw.  It:
-	- Creates a server on port 38999 that communicates with the
+	- Creates a server on port 31337 that provides a  with the
 	headless Chrome window and provides our HTML/JS GUI
 
 	- Listens for the global hotkey <LEFT_SHIFT>+<RIGHT_SHIFT> that
@@ -76,18 +74,12 @@ func Run(args []string) error {
 	sigc := make(chan os.Signal)
 	signal.Notify(sigc, os.Interrupt)
 
-	statikFS, err := fs.New()
-	if err != nil {
-		return err
-	}
-
 	r := mux.NewRouter()
 	r.HandleFunc("/omw/{command:report}", OmwHandler).Methods("GET").Queries("start", "{start}", "end", "{end}", "format", "{format}")
 	r.HandleFunc("/omw/{command:report}", OmwHandler).Methods("GET").Queries("start", "{start}", "end", "{end}")
 	r.HandleFunc("/omw/{command}", OmwHandler).Methods("GET")
 	r.HandleFunc("/omw/{command}", OmwHandler).Methods("OPTIONS")
 	r.HandleFunc("/omw/{command}", OmwHandler).Methods("POST")
-	r.PathPrefix("/").Handler(http.FileServer(statikFS))
 	r.Use(mux.CORSMethodMiddleware(r))
 	r.Use(setCorbHeaderMiddleware)
 	r.Use(setCorsOriginMiddleware)

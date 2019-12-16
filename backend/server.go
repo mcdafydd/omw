@@ -1,10 +1,10 @@
 package backend
 
 import (
-	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
@@ -15,6 +15,8 @@ import (
 	"time"
 
 	"github.com/gofrs/flock"
+	"github.com/google/uuid"
+	"github.com/pelletier/go-toml"
 	"github.com/pkg/errors"
 )
 
@@ -35,7 +37,7 @@ func (d formatType) String() string {
 
 // TemplateString defines the template used to output a Report() with FormatText
 var TemplateString = `{{define "Entry"}}
-({{- .Duration}}) {{.Start.Hour}}:{{.Start.Minute}}-{{.Ts.Hour}}:{{.Ts.Minute}} -- {{.Task -}}
+({{- .Duration}}) {{.Start.Hour}}:{{.Start.Minute}}-{{.Ts.Hour}}:{{.Ts.Minute}} -- {{.Title -}}
 {{end}}
 
 Report Start: {{.From}}
@@ -65,41 +67,53 @@ type Backend struct {
 	worker     *worker
 }
 
-// Entry describes a single entry in the timesheet
-// Used by omw report
-type Entry struct {
-	Start    time.Time     `json:"startTime"`
-	Ts       time.Time     `json:"timestamp"`
-	Duration time.Duration `json:"duration"`
-	Task     string        `json:"task"`
-	Ignore   bool          `json:"ignore"`
-	Brk      bool          `json:"break"`
+// ReportEntry describes a single entry in the timesheet
+// Omw report and the REST API calculate some of the missing
+// from the data stored on disk.
+type ReportEntry struct {
+	ID         string        `json:"id,omitempty"`
+	Brk        bool          `json:"break,omitempty"`
+	ClassNames []string      `json:"classNames,omitempty"`
+	Duration   time.Duration `json:"duration,omitempty"`
+	End        time.Time     `json:"end,omitempty"`
+	Ignore     bool          `json:"ignore,omitempty"`
+	Start      time.Time     `json:"start,omitempty"`
+	Title      string        `json:"title,omitempty"`
+	Ts         time.Time     `json:"timestamp,omitempty"`
+	URL        string        `json:"url,omitempty"`
 }
 
-// FCEntry describes an entry used by FullCalendar report format
-type FCEntry struct {
-	Start      time.Time `json:"start"`
-	End        time.Time `json:"end"`
-	Title      string    `json:"title"`
-	URL        string    `json:"url"`
-	ClassNames []string  `json:"classNames"`
+// SavedItems describes the structure of the entire TOML
+// file.
+type SavedItems struct {
+	Entries []SavedEntry `toml:"entries"`
+}
+
+// SavedEntry describes the TOML format saved on disk
+// for each entry.
+// Note that the stored data is minimized to make it
+// more suitable for human consumption
+type SavedEntry struct {
+	ID    string    `toml:"id"`
+	Start time.Time `toml:"start"`
+	Task  string    `toml:"task"`
 }
 
 // FCReport describes the format of a FullCalendar-compatible report
 type FCReport struct {
-	Events []FCEntry `json:"events"`
+	Events []ReportEntry `json:"events"`
 }
 
 // Report describes a report
 // previous is only used during report calculation to
-// populate Entry.Duration
+// populate ReportEntry.Duration
 type Report struct {
 	From      time.Time     `json:"reportFrom"`
 	To        time.Time     `json:"reportTo"`
 	IgnoreHrs time.Duration `json:"ignoreTotalHours"`
 	BrkHrs    time.Duration `json:"breakTotalHours"`
 	TaskHrs   time.Duration `json:"taskTotalHours"`
-	Entries   []Entry       `json:"entries"`
+	Entries   []ReportEntry `json:"entries"`
 	previous  *time.Time
 }
 
@@ -130,6 +144,7 @@ func (b *Backend) Close() error {
 
 // Edit opens your current timesheet in your default editor or
 // in the editor specified by the EDITOR environment variable
+// *** TODO: add protection against saving invalid TOML
 func (b *Backend) Edit() error {
 	editor := DefaultEditor
 	fileLock := flock.New(b.config.omwFile)
@@ -172,14 +187,14 @@ func (b *Backend) Hello() error {
 func (b *Backend) Report(start, end string, format string) (output string, err error) {
 	fcLayout := "2006-01-02T15:04:05-07:00"
 	layout := "2006-1-2" // should support optional leading zeros
-	layoutEvent := "2006-1-2 15:4"
+	//layoutEvent := "2006-1-2 15:4"
 	report := Report{}
 	report.From, err = time.Parse(layout, start)
 	if err != nil {
 		report.From, err = time.Parse(fcLayout, start)
 	}
 	if err != nil {
-		return "", errors.Wrap(err, "can't parse start time")
+		return "", errors.Wrap(err, "can't parse report start time")
 	}
 
 	report.To, err = time.Parse(layout, end)
@@ -187,35 +202,34 @@ func (b *Backend) Report(start, end string, format string) (output string, err e
 		report.To, err = time.Parse(fcLayout, end)
 	}
 	if err != nil {
-		return "", errors.Wrap(err, "can't parse end time")
+		return "", errors.Wrap(err, "can't parse report end time")
 	}
 	report.To = report.To.Add(24 * time.Hour)
-	r, err := os.Open(b.config.omwFile)
-	defer r.Close()
+	r, err := ioutil.ReadFile(b.config.omwFile)
 	if err != nil {
-		return "", err
+		return "", errors.Wrap(err, "can't read data file for report")
 	}
-	scanner := bufio.NewScanner(r)
-	scanner.Split(bufio.ScanLines)
-	for scanner.Scan() {
-		line := strings.Fields(scanner.Text())
+	data := SavedItems{}
+	err = toml.Unmarshal(r, &data)
+	if err != nil {
+		return "", errors.Wrap(err, "can't unmarshal data")
+	}
+
+	for _, e := range data.Entries {
 		// Indicates line is missing required information
-		if len(line) <= 2 {
+		if e.Task == "" {
 			continue
 		}
-		ts, err := time.Parse(layoutEvent, strings.Join(line[:2], " "))
-		if err != nil {
-			continue
-		}
+
 		// Indicates task timestamp is outside the requested time period
-		if ts.Before(report.From) || ts.After(report.To) {
+		if e.Start.Before(report.From) || e.Start.After(report.To) {
 			continue
 		}
-		entry, err := b.parseEntry(strings.Join(line[2:], " "))
+		entry, err := b.parseEntry(e.Task)
 		if err != nil {
 			continue
 		}
-		entry.Ts = ts
+		entry.Ts = e.Start
 		if err != nil {
 			continue
 		}
@@ -246,9 +260,10 @@ func (b *Backend) Report(start, end string, format string) (output string, err e
 		} else if entry.Ignore == false && entry.Brk == true {
 			report.BrkHrs += entry.Duration
 		} else if entry.Ignore == true && entry.Brk == true {
-			return "", errors.New("Entry has both break and ignore set to true.  Something's wrong.")
+			return "", errors.New("entry has both break and ignore set to true")
 		}
 		report.Entries = append(report.Entries, *entry)
+
 	}
 	f := FormatText
 	if format == "json" {
@@ -268,22 +283,21 @@ func (b *Backend) Report(start, end string, format string) (output string, err e
 // Stretch append current timestamp to end of timesheet and copy previous task
 // fp is opened in append mode, so seek to beginning of file first
 func (b *Backend) Stretch() error {
-	r, err := os.Open(b.config.omwFile)
-	defer r.Close()
+	r, err := ioutil.ReadFile(b.config.omwFile)
 	if err != nil {
 		return err
 	}
-	scanner := bufio.NewScanner(r)
-	scanner.Split(bufio.ScanLines)
-	lastEntry := []string{}
-	// Brute force retrieval of last line in timesheet
-	for scanner.Scan() {
-		lastEntry = strings.Fields(scanner.Text())
+	data := SavedItems{}
+	err = toml.Unmarshal(r, &data)
+	if err != nil {
+		return err
 	}
-	if len(lastEntry) <= 2 {
+
+	lastEntry := data.Entries[len(data.Entries)-1]
+	if lastEntry.Task == "" {
 		return errors.New("Missing task description for stretch")
 	}
-	err = b.addEntry(strings.Join(lastEntry[2:], " "))
+	err = b.addEntry(lastEntry.Task)
 	if err != nil {
 		return err
 	}
@@ -294,33 +308,34 @@ func (b *Backend) Stretch() error {
 // will create a new empty file if file is missing
 func (b *Backend) addEntry(s string) error {
 	fp, err := os.OpenFile(b.config.omwFile, os.O_APPEND|os.O_RDWR|os.O_CREATE, 0644)
-	defer fp.Close()
 	if err != nil {
-		errors.Wrapf(err, "Can't open or create %s", b.config.omwFile)
-		return err
+		return errors.Wrapf(err, "can't open or create %s: %q", b.config.omwFile, err)
 	}
-	ts := time.Now()
-	tsFmt := fmt.Sprintf("%d-%02d-%02d %02d:%02d",
-		ts.Year(),
-		ts.Month(),
-		ts.Day(),
-		ts.Hour(),
-		ts.Minute(),
-	)
-	entry := fmt.Sprintf("%s  %s\n", tsFmt, s)
-	if s == "hello" {
-		entry = fmt.Sprintf("\n%s", entry)
+	defer fp.Close()
+	data := SavedItems{}
+	entry := SavedEntry{}
+	entry.ID = uuid.New().String()
+	entry.Start = time.Now()
+	entry.Task = s
+	data.Entries = append(data.Entries, entry)
+	entryB, err := toml.Marshal(data)
+	if err != nil {
+		return errors.Wrap(err, "can't marshal data in addEntry")
 	}
+	toSave := string(entryB)
 	fileLock := flock.New(b.config.omwFile)
 	locked, err := fileLock.TryLock()
 	defer fileLock.Unlock()
 	if err != nil {
-		return err
+		return errors.Wrap(err, "can't marshal data in addEntry")
 	}
 	if !locked {
 		return errors.New("Unable to get file lock")
 	}
-	fp.WriteString(entry)
+	_, err = fp.WriteString(toSave)
+	if err != nil {
+		return errors.Wrap(err, "error saving new data")
+	}
 	return nil
 }
 
@@ -330,7 +345,7 @@ func (b *Backend) formatReport(report Report, format formatType) (string, error)
 		return string(output), err
 	}
 
-	entries := []FCEntry{}
+	entries := []ReportEntry{}
 	if format == FormatFC {
 		for _, entry := range report.Entries {
 			classes := []string{}
@@ -341,10 +356,10 @@ func (b *Backend) formatReport(report Report, format formatType) (string, error)
 				classes = append(classes, "ignoreEntry")
 			}
 
-			entries = append(entries, FCEntry{
+			entries = append(entries, ReportEntry{
 				Start:      entry.Start,
 				End:        entry.Start.Add(entry.Duration),
-				Title:      entry.Task,
+				Title:      entry.Title,
 				URL:        "",
 				ClassNames: classes,
 			})
@@ -368,14 +383,14 @@ func (b *Backend) formatReport(report Report, format formatType) (string, error)
 	return "", nil
 }
 
-func (b *Backend) parseEntry(s string) (*Entry, error) {
+func (b *Backend) parseEntry(s string) (*ReportEntry, error) {
 	re := regexp.MustCompile(`(?P<task>[a-zA-Z0-9,._+:@%\/-]+[a-zA-Z0-9,._+:@%\/\-\t ]*) ?(?P<mod>\*\*\*?)*`)
 	matches := re.FindStringSubmatch(s)
 	if matches == nil {
 		return nil, errors.New("Invalid string")
 	}
-	entry := &Entry{
-		Task: matches[1],
+	entry := &ReportEntry{
+		Title: matches[1],
 	}
 	if matches[2] == "**" {
 		entry.Brk = true

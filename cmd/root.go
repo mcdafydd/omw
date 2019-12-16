@@ -33,7 +33,7 @@ const (
 	// that will store omw data files
 	DefaultDir = ".local/share/omw"
 	// DefaultFile is the default filename for the primary time tracking data log
-	DefaultFile = "omw.log"
+	DefaultFile = "omw.toml"
 )
 
 var server *backend.Backend
