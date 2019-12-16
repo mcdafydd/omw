@@ -2,7 +2,8 @@ env:
   - GO111MODULE=on
 before:
   hooks:
-  - go get -u ./...
+  - go get -u github.com/mcdafydd/omw/backend
+  - go get -u github.com/mcdafydd/omw/cmd
 builds:
 - env:
   - CGO_ENABLED=0
