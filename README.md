@@ -1,6 +1,6 @@
-# OutOfMyWay Time Tracker
+# OutOfMyWay (Omw) Time Tracker
 
-*** (12/11/19) In active development, it may not work exactly as described, but it's getting close ***
+*** (12/11/19) In active development, it may not work exactly as described, but it's close ***
 
 A minimalist time tracker.  The primary purposes of this tool are:
 
@@ -45,26 +45,11 @@ To use the network API:
 
 ### Building
 
-[Mage](https://magefile.org) provides build, install, and packing functions.
-
-To run all build steps and install:
-
-`go run mage.go`
-
-To run all build stages:
-
-`go run mage.go build`
-
-To run an individual build stage:
-
-```
-go run mage.go buildgo
-go run mage.go buildpkg
-```
+`go build`
 
 # Architecture
 
-Omw is a simple, stateless, time tracker application, in that there is never a running clock in the background.  It only adds a task with the current timestamp to a text file log, and then compares adjacent timestamps to generate reports.  The timesheet is written line-by-line and stored in the default home directory as returned by the `go-homedir` package under `.local/share/omw/omw.log`.
+Omw is a simple, stateless, time tracker application, in that there is never a running clock in the background.  It only adds a task with the current timestamp to a text file log, and then compares adjacent timestamps to generate reports.  The timesheet is written line-by-line and stored in the default home directory as returned by the `go-homedir` package under `.local/share/omw/omw.toml`.
 
 The binary provides a command-line interface and a Go Gorilla Mux HTTP server providing a REST-ish API.  An flock() package provides an interface to operating system file locking.
 

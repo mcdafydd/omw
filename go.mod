@@ -1,6 +1,6 @@
 module github.com/mcdafydd/omw
 
-go 1.12
+go 1.13
 
 require (
 	github.com/gofrs/flock v0.7.1
