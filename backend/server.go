@@ -189,17 +189,18 @@ func (b *Backend) Report(start, end string, format string) (output string, err e
 	layout := "2006-1-2" // should support optional leading zeros
 	//layoutEvent := "2006-1-2 15:4"
 	report := Report{}
-	report.From, err = time.Parse(layout, start)
+	loc := time.Now().Location()
+	report.From, err = time.ParseInLocation(layout, start, loc)
 	if err != nil {
-		report.From, err = time.Parse(fcLayout, start)
+		report.From, err = time.ParseInLocation(fcLayout, start, loc)
 	}
 	if err != nil {
 		return "", errors.Wrap(err, "can't parse report start time")
 	}
 
-	report.To, err = time.Parse(layout, end)
+	report.To, err = time.ParseInLocation(layout, end, loc)
 	if err != nil {
-		report.To, err = time.Parse(fcLayout, end)
+		report.To, err = time.ParseInLocation(fcLayout, end, loc)
 	}
 	if err != nil {
 		return "", errors.Wrap(err, "can't parse report end time")
