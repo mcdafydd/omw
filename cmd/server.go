@@ -155,8 +155,16 @@ func OmwHandler(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusConflict)
 		}
 	case "edit", "e":
-		if err := server.Edit(); err != nil {
+		reopen, err := server.Edit()
+		if err != nil {
 			w.WriteHeader(http.StatusConflict)
+		}
+		for reopen {
+			reopen, err = server.Edit()
+			if err != nil {
+				w.WriteHeader(http.StatusConflict)
+				break
+			}
 		}
 	case "ignore", "i":
 		if err := server.Add([]string{"ignore", "***"}); err != nil {

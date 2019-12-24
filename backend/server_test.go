@@ -113,7 +113,7 @@ func TestBackend_Edit(t *testing.T) {
 				fp:     tt.fields.fp,
 				worker: tt.fields.worker,
 			}
-			if err := b.Edit(); (err != nil) != tt.wantErr {
+			if _, err := b.Edit(); (err != nil) != tt.wantErr {
 				t.Errorf("Backend.Edit() error = %v, wantErr %v", err, tt.wantErr)
 			}
 		})

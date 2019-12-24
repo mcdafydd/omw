@@ -2,5 +2,6 @@
 
 package backend
 
-// DefaultEditor on Linux, MacOS
+// Defaults on Linux, MacOS
 const DefaultEditor = "nano"
+const DefaultTerm = "xterm"

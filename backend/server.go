@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
@@ -120,6 +122,7 @@ type Report struct {
 type config struct {
 	omwDir  string
 	omwFile string
+	omwTerm string
 }
 
 type worker struct {
@@ -144,30 +147,87 @@ func (b *Backend) Close() error {
 
 // Edit opens your current timesheet in your default editor or
 // in the editor specified by the EDITOR environment variable
-// *** TODO: add protection against saving invalid TOML
-func (b *Backend) Edit() error {
+// Similar to visudo, will do some basic checks to ensure
+// that any edits will still pass toml.Marshal() and that there
+// are no duplicate IDs
+// should return true, err to ask the caller to re-run Edit()
+func (b *Backend) Edit() (bool, error) {
 	editor := DefaultEditor
 	fileLock := flock.New(b.config.omwFile)
+	term := DefaultTerm
+
 	locked, err := fileLock.TryLock()
 	defer fileLock.Unlock()
 	if err != nil {
-		return err
+		return false, err
 	}
 	if !locked {
-		return errors.New("Unable to get file lock")
+		return false, errors.New("Unable to get file lock")
 	}
-	if preferred := os.Getenv("EDITOR"); preferred != "" {
-		editor = preferred
+
+	// copy file
+	source, err := os.Open(b.config.omwFile)
+	if err != nil {
+		return false, err
 	}
-	if term := os.Getenv("OMW_TERM"); runtime.GOOS != "windows" && term != "" {
-		editor = fmt.Sprintf("%s -e %s", term, editor)
+	defer source.Close()
+	pat := fmt.Sprintf("%s*", filepath.Base(b.config.omwFile))
+	tmpFile, err := ioutil.TempFile(filepath.Dir(b.config.omwFile), pat)
+	defer tmpFile.Close()
+	if err != nil {
+		return false, err
 	}
-	argv := []string{b.config.omwFile}
-	cmd := exec.CommandContext(b.ctx, editor, argv...)
+	_, err = io.Copy(tmpFile, source)
+	if err != nil {
+		return false, err
+	}
+
+	if preferredEditor := os.Getenv("EDITOR"); preferredEditor != "" {
+		editor = preferredEditor
+	}
+	runCmd := editor
+	if preferredTerm := os.Getenv("OMW_TERM"); runtime.GOOS != "windows" && preferredTerm != "" {
+		term = preferredTerm
+		runCmd = fmt.Sprintf("%s -e %s", term, editor)
+	}
+
+	tmpPath := tmpFile.Name()
+	argv := []string{tmpPath}
+	cmd := exec.CommandContext(b.ctx, runCmd, argv...)
 	// should work if run from terminal
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
-	return runCommand(cmd)
+	err = runCommand(cmd)
+	if err != nil {
+		tmpFile.Close()
+		inner := os.Remove(tmpPath)
+		return false, errors.Wrap(err, inner.Error())
+	}
+
+	// after edits, lock tmpFile and validate changes
+	tmpLock := flock.New(tmpPath)
+	tmpLocked, err := tmpLock.TryLock()
+	defer tmpLock.Unlock()
+	if err != nil {
+		tmpFile.Close()
+		inner := os.Remove(tmpPath)
+		return false, errors.Wrap(err, inner.Error())
+	}
+	if !tmpLocked {
+		tmpFile.Close()
+		err = errors.New("Unable to get file lock on tmpFile")
+		inner := os.Remove(tmpPath)
+		return false, errors.Wrap(err, inner.Error())
+	}
+
+	_, err = validateEdit(tmpFile)
+	if err != nil {
+		tmpFile.Close()
+		inner := os.Remove(tmpPath)
+		return true, errors.Wrap(err, inner.Error())
+	}
+	os.Rename(tmpPath, b.config.omwFile)
+	return false, err
 }
 
 // Hello appends a newline and then another line to end of timesheet with current time
@@ -423,4 +483,32 @@ func runCommand(cmd *exec.Cmd) error {
 		return err
 	}
 	return nil
+}
+
+// validateEdit ensures that f:
+// 1. Can be successfully unmarshaled into an OMW data structure
+// 2. Has no duplicate IDs
+// 3. If it finds a duplicate ID, attempts to help user auto-correct
+//
+// It does not:
+// 1. Check for in-order task times
+func validateEdit(f *os.File) (*SavedItems, error) {
+	keys := make(map[string]bool)
+	data := SavedItems{}
+	r, err := ioutil.ReadAll(f)
+	err = toml.Unmarshal(r, &data)
+	if err != nil {
+		return nil, errors.Wrap(err, "TOML formatting error in edit please try again")
+	}
+
+	for _, e := range data.Entries {
+		if _, exists := keys[e.ID]; exists {
+			return nil, errors.New("Duplicate key found - fixing")
+		}
+		keys[e.ID] = true
+		if e.Task == "" {
+			continue
+		}
+	}
+	return &data, nil
 }
