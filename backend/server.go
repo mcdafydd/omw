@@ -162,7 +162,7 @@ func (b *Backend) Edit() (bool, error) {
 		return false, err
 	}
 	if !locked {
-		return false, errors.New("Unable to get file lock")
+		return false, errors.New("unable to get file lock")
 	}
 
 	// copy file
@@ -215,16 +215,43 @@ func (b *Backend) Edit() (bool, error) {
 	}
 	if !tmpLocked {
 		tmpFile.Close()
-		err = errors.New("Unable to get file lock on tmpFile")
+		err = errors.New("unable to get file lock on tmpFile")
 		inner := os.Remove(tmpPath)
 		return false, errors.Wrap(err, inner.Error())
 	}
 
-	_, err = validateEdit(tmpFile)
+	validated, err := validateEdit(tmpFile.Name())
 	if err != nil {
 		tmpFile.Close()
 		inner := os.Remove(tmpPath)
-		return true, errors.Wrap(err, inner.Error())
+		innerErr := ""
+		if inner != nil {
+			innerErr = inner.Error()
+		}
+		return true, errors.Wrap(err, innerErr)
+	}
+	if len(validated.Entries) == 0 {
+		return false, errors.Wrapf(err, "got zero entries from edit - manually remove %s to clear all tasks", b.config.omwFile)
+	}
+	validatedBytes, err := toml.Marshal(validated)
+	if err != nil {
+		return false, errors.Wrap(err, "can't marshal data in edit")
+	}
+
+	// backup current file before overwriting
+	input, err := ioutil.ReadFile(b.config.omwFile)
+	if err != nil {
+		return false, errors.Wrap(err, "reading backup file")
+	}
+	backup := fmt.Sprintf("%s.bak", b.config.omwFile)
+	err = ioutil.WriteFile(backup, input, 0644)
+	if err != nil {
+		return false, errors.Wrap(err, "writing backup file")
+	}
+
+	err = ioutil.WriteFile(tmpFile.Name(), validatedBytes, 0644)
+	if err != nil {
+		return false, errors.Wrap(err, "saving new data")
 	}
 	os.Rename(tmpPath, b.config.omwFile)
 	return false, err
@@ -356,7 +383,7 @@ func (b *Backend) Stretch() error {
 
 	lastEntry := data.Entries[len(data.Entries)-1]
 	if lastEntry.Task == "" {
-		return errors.New("Missing task description for stretch")
+		return errors.New("missing task description for stretch")
 	}
 	err = b.addEntry(lastEntry.Task)
 	if err != nil {
@@ -379,19 +406,19 @@ func (b *Backend) addEntry(s string) error {
 	entry.Start = time.Now()
 	entry.Task = s
 	data.Entries = append(data.Entries, entry)
-	entryB, err := toml.Marshal(data)
+	entriesBytes, err := toml.Marshal(data)
 	if err != nil {
-		return errors.Wrap(err, "can't marshal data in addEntry")
+		return errors.Wrap(err, "can't marshal data")
 	}
-	toSave := string(entryB)
+	toSave := string(entriesBytes)
 	fileLock := flock.New(b.config.omwFile)
 	locked, err := fileLock.TryLock()
 	defer fileLock.Unlock()
 	if err != nil {
-		return errors.Wrap(err, "can't marshal data in addEntry")
+		return errors.Wrap(err, "unable to get file lock")
 	}
 	if !locked {
-		return errors.New("Unable to get file lock")
+		return errors.New("unable to get file lock")
 	}
 	_, err = fp.WriteString(toSave)
 	if err != nil {
@@ -448,7 +475,7 @@ func (b *Backend) parseEntry(s string) (*ReportEntry, error) {
 	re := regexp.MustCompile(`(?P<task>[a-zA-Z0-9,._+:@%\/-]+[a-zA-Z0-9,._+:@%\/\-\t ]*) ?(?P<mod>\*\*\*?)*`)
 	matches := re.FindStringSubmatch(s)
 	if matches == nil {
-		return nil, errors.New("Invalid string")
+		return nil, errors.New("invalid string")
 	}
 	entry := &ReportEntry{
 		Title: matches[1],
@@ -488,27 +515,34 @@ func runCommand(cmd *exec.Cmd) error {
 // validateEdit ensures that f:
 // 1. Can be successfully unmarshaled into an OMW data structure
 // 2. Has no duplicate IDs
-// 3. If it finds a duplicate ID, attempts to help user auto-correct
+// 3. If it finds a duplicate ID, attempt to auto-correct without prompting
+// We don't use the IDs in the CLI for now.
 //
 // It does not:
 // 1. Check for in-order task times
-func validateEdit(f *os.File) (*SavedItems, error) {
+func validateEdit(fn string) (*SavedItems, error) {
 	keys := make(map[string]bool)
 	data := SavedItems{}
-	r, err := ioutil.ReadAll(f)
+	r, err := ioutil.ReadFile(fn)
+	if err != nil {
+		return nil, errors.Wrap(err, "reading temporary file")
+	}
 	err = toml.Unmarshal(r, &data)
 	if err != nil {
-		return nil, errors.Wrap(err, "TOML formatting error in edit please try again")
+		return nil, errors.Wrap(err, "TOML formatting error please try again")
 	}
 
-	for _, e := range data.Entries {
+	for i, e := range data.Entries {
+		log.Printf("checking entry %s\n", e.ID)
 		if _, exists := keys[e.ID]; exists {
-			return nil, errors.New("Duplicate key found - fixing")
-		}
-		keys[e.ID] = true
-		if e.Task == "" {
+			log.Printf("Duplicate ID found - %s - fixing", e.ID)
+			newID := uuid.New().String()
+			log.Printf("New ID = %s", newID)
+			keys[e.ID] = true
+			data.Entries[i].ID = newID
 			continue
 		}
+		keys[e.ID] = false
 	}
 	return &data, nil
 }
