@@ -1,6 +1,14 @@
 [Unreleased]
 
 
+[v0.6.4] - 2019-12-24
+
+Safer `omw edit`
+
+    - Backs up current file to the same path with a `.bak` extension
+    - Ensures valid TOML
+    - Automatically fixes duplicate IDs - makes it easy to manually copy/paste a new entry in edit mode
+
 [v0.6.1] - 2019-12-16
 
 First release
