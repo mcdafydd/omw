@@ -2,5 +2,6 @@
 
 package backend
 
-// DefaultEditor on Windows
+// Defaults on Windows
 const DefaultEditor = "notepad.exe"
+const DefaultTerm = ""

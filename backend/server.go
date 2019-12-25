@@ -4,10 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
 	"os/exec"
+	"path/filepath"
 	"regexp"
 	"runtime"
 	"strings"
@@ -120,6 +122,7 @@ type Report struct {
 type config struct {
 	omwDir  string
 	omwFile string
+	omwTerm string
 }
 
 type worker struct {
@@ -144,30 +147,114 @@ func (b *Backend) Close() error {
 
 // Edit opens your current timesheet in your default editor or
 // in the editor specified by the EDITOR environment variable
-// *** TODO: add protection against saving invalid TOML
-func (b *Backend) Edit() error {
+// Similar to visudo, will do some basic checks to ensure
+// that any edits will still pass toml.Marshal() and that there
+// are no duplicate IDs
+// should return true, err to ask the caller to re-run Edit()
+func (b *Backend) Edit() (bool, error) {
 	editor := DefaultEditor
 	fileLock := flock.New(b.config.omwFile)
+	term := DefaultTerm
+
 	locked, err := fileLock.TryLock()
 	defer fileLock.Unlock()
 	if err != nil {
-		return err
+		return false, err
 	}
 	if !locked {
-		return errors.New("Unable to get file lock")
+		return false, errors.New("unable to get file lock")
 	}
-	if preferred := os.Getenv("EDITOR"); preferred != "" {
-		editor = preferred
+
+	// copy file
+	source, err := os.Open(b.config.omwFile)
+	if err != nil {
+		return false, err
 	}
-	if term := os.Getenv("OMW_TERM"); runtime.GOOS != "windows" && term != "" {
-		editor = fmt.Sprintf("%s -e %s", term, editor)
+	defer source.Close()
+	pat := fmt.Sprintf("%s*", filepath.Base(b.config.omwFile))
+	tmpFile, err := ioutil.TempFile(filepath.Dir(b.config.omwFile), pat)
+	defer tmpFile.Close()
+	if err != nil {
+		return false, err
 	}
-	argv := []string{b.config.omwFile}
-	cmd := exec.CommandContext(b.ctx, editor, argv...)
+	_, err = io.Copy(tmpFile, source)
+	if err != nil {
+		return false, err
+	}
+
+	if preferredEditor := os.Getenv("EDITOR"); preferredEditor != "" {
+		editor = preferredEditor
+	}
+	runCmd := editor
+	if preferredTerm := os.Getenv("OMW_TERM"); runtime.GOOS != "windows" && preferredTerm != "" {
+		term = preferredTerm
+		runCmd = fmt.Sprintf("%s -e %s", term, editor)
+	}
+
+	tmpPath := tmpFile.Name()
+	argv := []string{tmpPath}
+	cmd := exec.CommandContext(b.ctx, runCmd, argv...)
 	// should work if run from terminal
 	cmd.Stdin = os.Stdin
 	cmd.Stdout = os.Stdout
-	return runCommand(cmd)
+	err = runCommand(cmd)
+	if err != nil {
+		tmpFile.Close()
+		inner := os.Remove(tmpPath)
+		return false, errors.Wrap(err, inner.Error())
+	}
+
+	// after edits, lock tmpFile and validate changes
+	tmpLock := flock.New(tmpPath)
+	tmpLocked, err := tmpLock.TryLock()
+	defer tmpLock.Unlock()
+	if err != nil {
+		tmpFile.Close()
+		inner := os.Remove(tmpPath)
+		return false, errors.Wrap(err, inner.Error())
+	}
+	if !tmpLocked {
+		tmpFile.Close()
+		err = errors.New("unable to get file lock on tmpFile")
+		inner := os.Remove(tmpPath)
+		return false, errors.Wrap(err, inner.Error())
+	}
+
+	validated, err := validateEdit(tmpFile.Name())
+	if err != nil {
+		tmpFile.Close()
+		inner := os.Remove(tmpPath)
+		innerErr := ""
+		if inner != nil {
+			innerErr = inner.Error()
+		}
+		return true, errors.Wrap(err, innerErr)
+	}
+	if len(validated.Entries) == 0 {
+		return false, errors.Wrapf(err, "got zero entries from edit - manually remove %s to clear all tasks", b.config.omwFile)
+	}
+	validatedBytes, err := toml.Marshal(validated)
+	if err != nil {
+		return false, errors.Wrap(err, "can't marshal data in edit")
+	}
+
+	// backup current file before overwriting
+	input, err := ioutil.ReadFile(b.config.omwFile)
+	if err != nil {
+		return false, errors.Wrap(err, "reading backup file")
+	}
+	backup := fmt.Sprintf("%s.bak", b.config.omwFile)
+	err = ioutil.WriteFile(backup, input, 0644)
+	if err != nil {
+		return false, errors.Wrap(err, "writing backup file")
+	}
+
+	err = ioutil.WriteFile(tmpFile.Name(), validatedBytes, 0644)
+	if err != nil {
+		return false, errors.Wrap(err, "saving new data")
+	}
+	os.Rename(tmpPath, b.config.omwFile)
+	return false, err
 }
 
 // Hello appends a newline and then another line to end of timesheet with current time
@@ -296,7 +383,7 @@ func (b *Backend) Stretch() error {
 
 	lastEntry := data.Entries[len(data.Entries)-1]
 	if lastEntry.Task == "" {
-		return errors.New("Missing task description for stretch")
+		return errors.New("missing task description for stretch")
 	}
 	err = b.addEntry(lastEntry.Task)
 	if err != nil {
@@ -319,19 +406,19 @@ func (b *Backend) addEntry(s string) error {
 	entry.Start = time.Now()
 	entry.Task = s
 	data.Entries = append(data.Entries, entry)
-	entryB, err := toml.Marshal(data)
+	entriesBytes, err := toml.Marshal(data)
 	if err != nil {
-		return errors.Wrap(err, "can't marshal data in addEntry")
+		return errors.Wrap(err, "can't marshal data")
 	}
-	toSave := string(entryB)
+	toSave := string(entriesBytes)
 	fileLock := flock.New(b.config.omwFile)
 	locked, err := fileLock.TryLock()
 	defer fileLock.Unlock()
 	if err != nil {
-		return errors.Wrap(err, "can't marshal data in addEntry")
+		return errors.Wrap(err, "unable to get file lock")
 	}
 	if !locked {
-		return errors.New("Unable to get file lock")
+		return errors.New("unable to get file lock")
 	}
 	_, err = fp.WriteString(toSave)
 	if err != nil {
@@ -388,7 +475,7 @@ func (b *Backend) parseEntry(s string) (*ReportEntry, error) {
 	re := regexp.MustCompile(`(?P<task>[a-zA-Z0-9,._+:@%\/-]+[a-zA-Z0-9,._+:@%\/\-\t ]*) ?(?P<mod>\*\*\*?)*`)
 	matches := re.FindStringSubmatch(s)
 	if matches == nil {
-		return nil, errors.New("Invalid string")
+		return nil, errors.New("invalid string")
 	}
 	entry := &ReportEntry{
 		Title: matches[1],
@@ -423,4 +510,39 @@ func runCommand(cmd *exec.Cmd) error {
 		return err
 	}
 	return nil
+}
+
+// validateEdit ensures that f:
+// 1. Can be successfully unmarshaled into an OMW data structure
+// 2. Has no duplicate IDs
+// 3. If it finds a duplicate ID, attempt to auto-correct without prompting
+// We don't use the IDs in the CLI for now.
+//
+// It does not:
+// 1. Check for in-order task times
+func validateEdit(fn string) (*SavedItems, error) {
+	keys := make(map[string]bool)
+	data := SavedItems{}
+	r, err := ioutil.ReadFile(fn)
+	if err != nil {
+		return nil, errors.Wrap(err, "reading temporary file")
+	}
+	err = toml.Unmarshal(r, &data)
+	if err != nil {
+		return nil, errors.Wrap(err, "TOML formatting error please try again")
+	}
+
+	for i, e := range data.Entries {
+		log.Printf("checking entry %s\n", e.ID)
+		if _, exists := keys[e.ID]; exists {
+			log.Printf("Duplicate ID found - %s - fixing", e.ID)
+			newID := uuid.New().String()
+			log.Printf("New ID = %s", newID)
+			keys[e.ID] = true
+			data.Entries[i].ID = newID
+			continue
+		}
+		keys[e.ID] = false
+	}
+	return &data, nil
 }
