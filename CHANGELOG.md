@@ -1,7 +1,7 @@
 [Unreleased]
 
 
-[v0.6.4] - 2019-12-24
+[v0.6.6] - 2019-12-24
 
 Safer `omw edit`
 
