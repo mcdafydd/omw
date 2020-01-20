@@ -29,7 +29,10 @@ var helloCmd = &cobra.Command{
 	
 	and then adds a line with the current timestamp and a task of 'hello'. 
 	It should be run at the beginning of a new work day to signify the 
-	start of your first task.`,
+	start of your first task.
+ 
+        If you do not use hello, omw report will calculate the length of your 
+        first task of the day from midnight of the current day.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) > 0 {
 			fmt.Fprintf(os.Stderr, "Unused arguments provided after hello command\n")

@@ -41,7 +41,7 @@ var server *backend.Backend
 // MousetrapHelpText Set MousetrapHelpText to an empty string to disable Cobra's
 // automatic display of a warning to Windows users who double-click the binary
 // from Windows Explorer.  We want to have our own mousetrap and alias it to
-// 'omw server'.
+// 'omw report'.
 var MousetrapHelpText string
 
 // rootCmd represents the base command when called without any subcommands
@@ -57,8 +57,8 @@ var rootCmd = &cobra.Command{
 	tasks to an external system`,
 	RunE: func(cmd *cobra.Command, args []string) (err error) {
 		if mousetrap.StartedByExplorer() {
-			err = serverCmd.RunE(cmd, args)
-			fmt.Println("running backend from explorer")
+			err = reportCmd.RunE(cmd, args)
+			fmt.Println("running report from Explorer")
 		}
 		if err != nil {
 			fmt.Println(err)

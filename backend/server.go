@@ -49,10 +49,10 @@ Total Break Hours: {{.BrkHrs}}
 Total Ignore Hours: {{.IgnoreHrs}}
 {{$day := "" }}
 {{range .Entries}}
-{{- if ne $day .Start.Weekday.String}}
-{{$day = .Start.Weekday.String}}
+{{- if ne $day .End.Weekday.String}}
+{{$day = .End.Weekday.String}}
 
------------------------ {{$day}}, {{.Start.Year}}-{{.Start.Month}}-{{.Start.Day}} -----------------------
+----------------------- {{$day}}, {{.End.Year}}-{{.End.Month}}-{{.End.Day}} -----------------------
 {{end -}}
 {{- template "Entry" .}}
 {{- end -}}
@@ -77,9 +77,9 @@ type ReportEntry struct {
 	Brk        bool          `json:"break,omitempty"`
 	ClassNames []string      `json:"classNames,omitempty"`
 	Duration   time.Duration `json:"duration,omitempty"`
-	End        time.Time     `json:"end,omitempty"`
 	Ignore     bool          `json:"ignore,omitempty"`
 	Start      time.Time     `json:"start,omitempty"`
+	End        time.Time     `json:"end,omitempty"`
 	Title      string        `json:"title,omitempty"`
 	Ts         time.Time     `json:"timestamp,omitempty"`
 	URL        string        `json:"url,omitempty"`
@@ -96,9 +96,9 @@ type SavedItems struct {
 // Note that the stored data is minimized to make it
 // more suitable for human consumption
 type SavedEntry struct {
-	ID    string    `toml:"id"`
-	Start time.Time `toml:"start"`
-	Task  string    `toml:"task"`
+	ID   string    `toml:"id"`
+	End  time.Time `toml:"end"`
+	Task string    `toml:"task"`
 }
 
 // FCReport describes the format of a FullCalendar-compatible report
@@ -310,21 +310,21 @@ func (b *Backend) Report(start, end string, format string) (output string, err e
 		}
 
 		// Indicates task timestamp is outside the requested time period
-		if e.Start.Before(report.From) || e.Start.After(report.To) {
+		if e.End.Before(report.From) || e.End.After(report.To) {
 			continue
 		}
 		entry, err := b.parseEntry(e.Task)
 		if err != nil {
 			continue
 		}
-		entry.Ts = e.Start
+		entry.Ts = e.End
 		if err != nil {
 			continue
 		}
 		// Should indicate first task in requested report time period
 		if report.previous == nil {
 			report.previous = &entry.Ts
-			entry.Start = entry.Ts
+			entry.End = entry.Ts
 			report.Entries = append(report.Entries, *entry)
 			continue
 		}
@@ -333,9 +333,9 @@ func (b *Backend) Report(start, end string, format string) (output string, err e
 		// to better allow tracking tasks that extend from a previous day into a new day
 		if entry.Ts.Day() != (*report.previous).Day() {
 			report.previous = &entry.Ts
-			entry.Start = entry.Ts
+			entry.End = entry.Ts
 		}
-		entry.Start = *report.previous
+		entry.End = *report.previous
 		entry.Duration = entry.Ts.Sub(*report.previous)
 
 		*report.previous = entry.Ts
@@ -403,7 +403,7 @@ func (b *Backend) addEntry(s string) error {
 	data := SavedItems{}
 	entry := SavedEntry{}
 	entry.ID = uuid.New().String()
-	entry.Start = time.Now()
+	entry.End = time.Now()
 	entry.Task = s
 	data.Entries = append(data.Entries, entry)
 	entriesBytes, err := toml.Marshal(data)
@@ -533,7 +533,6 @@ func validateEdit(fn string) (*SavedItems, error) {
 	}
 
 	for i, e := range data.Entries {
-		log.Printf("checking entry %s\n", e.ID)
 		if _, exists := keys[e.ID]; exists {
 			log.Printf("Duplicate ID found - %s - fixing", e.ID)
 			newID := uuid.New().String()

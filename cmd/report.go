@@ -43,7 +43,13 @@ var reportCmd = &cobra.Command{
 	
 	--from YYYY-MM-DD --to YYYY-MM-DD 
 
-	to provide start and end dates for the report.`,
+	to provide start and optional end dates for the report.
+        If end date is not specified, end date will be today.`,
+	Example: `
+	omw report
+	omw report --from 2019-01-01 
+	omw report --from 2019-01-01 --to 2019-01-04
+	`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		output, err := server.Report(From, To, Format)
 		if err != nil {
