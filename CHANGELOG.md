@@ -1,5 +1,15 @@
 [Unreleased]
 
+- Integrate omw CLI with omw progessive web app, controlled by configuration
+
+[v0.7.0] - 2020-01-20
+
+Remove `omw server`
+
+    - Removed localhost TCP server - all omw functionality will now be local
+    - Rename `start` to `end` in timesheet for clarity - format should be compatible with
+    the PWA Dexie format
+    - Update command help text
 
 [v0.6.6] - 2019-12-24
 
